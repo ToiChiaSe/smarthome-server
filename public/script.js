@@ -51,8 +51,8 @@ async function loadSensors() {
   if (!data) return;
 
   document.getElementById("temp").innerText = data.nhietdo ?? "--";
-  document.getElementById("humi").innerText = data.doam ?? "--";
-  document.getElementById("light").innerText = data.anhSang ?? "--";
+  document.getElementById("hum").innerText = data.doam ?? "--";
+  document.getElementById("lux").innerText = data.anhSang ?? "--";
 }
 
 // ===============================
@@ -63,15 +63,18 @@ async function loadStatus() {
   const st = await res.json();
   if (!st) return;
 
-  document.getElementById("led1").checked = st.led1;
-  document.getElementById("led2").checked = st.led2;
-  document.getElementById("led3").checked = st.led3;
-  document.getElementById("led4").checked = st.led4;
-  document.getElementById("fan").checked = st.fan;
+  document.getElementById("st-led1").innerText = st.led1 ? "ON" : "OFF";
+  document.getElementById("st-led2").innerText = st.led2 ? "ON" : "OFF";
+  document.getElementById("st-led3").innerText = st.led3 ? "ON" : "OFF";
+  document.getElementById("st-led4").innerText = st.led4 ? "ON" : "OFF";
+  document.getElementById("st-fan").innerText = st.fan ? "ON" : "OFF";
 
-  document.getElementById("curtainMode").innerText =
+  document.getElementById("st-curtain").innerText =
     st.curtainMode === 1 ? "Đóng" :
     st.curtainMode === 2 ? "Mở" : "Dừng";
+
+  document.getElementById("auto-mode-label").innerText = st.autoMode ? "ON" : "OFF";
+  document.getElementById("st-last").innerText = st.lastAction ?? "--";
 }
 
 // ===============================
@@ -82,6 +85,28 @@ async function sendCmd(topic, cmd) {
     method: "POST",
     body: JSON.stringify({ topic, cmd })
   });
+}
+
+// ===============================
+// LED + FAN CONTROL
+// ===============================
+async function toggleLed(led) {
+  const st = document.getElementById("st-" + led).innerText;
+  const newState = st === "ON" ? "OFF" : "ON";
+  sendCmd("truong/home/cmd/" + led, newState);
+}
+
+async function toggleFan() {
+  const st = document.getElementById("st-fan").innerText;
+  const newState = st === "ON" ? "OFF" : "ON";
+  sendCmd("truong/home/cmd/fan", newState);
+}
+
+// ===============================
+// CURTAIN CONTROL
+// ===============================
+function curtainCmd(cmd) {
+  sendCmd("truong/home/cmd/curtain", cmd);
 }
 
 // ===============================
@@ -216,11 +241,171 @@ async function saveAutoConfig() {
 }
 
 // ===============================
+// SCHEDULE
+// ===============================
+async function addSchedule() {
+  const body = {
+    device: document.getElementById("sch-device").value,
+    action: document.getElementById("sch-action").value,
+    time: document.getElementById("sch-time").value,
+    repeat: document.getElementById("sch-repeat").value
+  };
+
+  const res = await authFetch("/api/schedule", {
+    method: "POST",
+    body: JSON.stringify(body)
+  });
+
+  const data = await res.json();
+  if (!data.success) {
+    alert(data.error);
+    return;
+  }
+
+  loadSchedule();
+}
+
+async function loadSchedule() {
+  const res = await authFetch("/api/schedule");
+  const list = await res.json();
+
+  const tbody = document.querySelector("#scheduleTable tbody");
+  tbody.innerHTML = "";
+
+  list.forEach(s => {
+    tbody.innerHTML += `
+      <tr>
+        <td>${s.device}</td>
+        <td>${s.action}</td>
+        <td>${s.time}</td>
+        <td>${s.repeat}</td>
+        <td><button onclick="deleteSchedule('${s._id}')">Xóa</button></td>
+      </tr>
+    `;
+  });
+}
+
+async function deleteSchedule(id) {
+  await authFetch("/api/schedule/" + id, { method: "DELETE" });
+  loadSchedule();
+}
+
+// ===============================
+// SCENARIO
+// ===============================
+async function addScenario() {
+  const body = {
+    name: document.getElementById("sc-name").value,
+    condition: {
+      tempAbove: Number(document.getElementById("sc-tempAbove").value) || null,
+      tempBelow: Number(document.getElementById("sc-tempBelow").value) || null,
+      lightAbove: Number(document.getElementById("sc-lightAbove").value) || null,
+      lightBelow: Number(document.getElementById("sc-lightBelow").value) || null,
+      humidityAbove: Number(document.getElementById("sc-humAbove").value) || null,
+      humidityBelow: Number(document.getElementById("sc-humBelow").value) || null
+    },
+    actions: [
+      {
+        device: document.getElementById("sc-device").value,
+        cmd: document.getElementById("sc-cmd").value
+      }
+    ]
+  };
+
+  const res = await authFetch("/api/scenario", {
+    method: "POST",
+    body: JSON.stringify(body)
+  });
+
+  const data = await res.json();
+  if (!data.success) {
+    alert(data.error);
+    return;
+  }
+
+  loadScenario();
+}
+
+async function loadScenario() {
+  const res = await authFetch("/api/scenario");
+  const list = await res.json();
+
+  const tbody = document.querySelector("#scenarioTable tbody");
+  tbody.innerHTML = "";
+
+  list.forEach(s => {
+    tbody.innerHTML += `
+      <tr>
+        <td>${s.name}</td>
+        <td>
+          ${JSON.stringify(s.condition)}
+        </td>
+        <td>
+          ${s.actions.map(a => `${a.device}:${a.cmd}`).join(", ")}
+        </td>
+        <td><button onclick="deleteScenario('${s._id}')">Xóa</button></td>
+      </tr>
+    `;
+  });
+}
+
+async function deleteScenario(id) {
+  await authFetch("/api/scenario/" + id, { method: "DELETE" });
+  loadScenario();
+}
+
+// ===============================
+// AUTO LOG
+// ===============================
+async function loadAutoLog() {
+  const res = await authFetch("/api/auto-log/latest");
+  const logs = await res.json();
+
+  const tbody = document.querySelector("#autoLogTable tbody");
+  tbody.innerHTML = "";
+
+  logs.forEach(l => {
+    tbody.innerHTML += `
+      <tr>
+        <td>${new Date(l.timestamp).toLocaleString()}</td>
+        <td>${l.rule}</td>
+        <td>${l.action}</td>
+        <td>${l.value}</td>
+      </tr>
+    `;
+  });
+}
+
+// ===============================
+// HISTORY TABLE
+// ===============================
+async function loadHistory() {
+  const res = await fetch("/api/cambien/recent");
+  const list = await res.json();
+
+  const tbody = document.querySelector("#historyTable tbody");
+  tbody.innerHTML = "";
+
+  list.forEach(r => {
+    tbody.innerHTML += `
+      <tr>
+        <td>${new Date(r.createdAt).toLocaleString()}</td>
+        <td>${r.nhietdo}</td>
+        <td>${r.doam}</td>
+        <td>${r.anhSang}</td>
+      </tr>
+    `;
+  });
+}
+
+// ===============================
 // REFRESH (KHÔNG LOAD AUTOCONFIG)
 // ===============================
 function refreshAll() {
   loadSensors();
   loadStatus();
+  loadAutoLog();
+  loadHistory();
 }
 
 setInterval(refreshAll, 3000);
@@ -233,5 +418,9 @@ window.onload = () => {
     loadSensors();
     loadStatus();
     loadAutoConfig();
+    loadSchedule();
+    loadScenario();
+    loadAutoLog();
+    loadHistory();
   }
 };
