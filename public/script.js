@@ -1,7 +1,9 @@
 let tempChart, humChart, luxChart;
 let latestStatus = null;
 
-// ====== TẠO BIỂU ĐỒ ======
+// ===============================
+//  TẠO BIỂU ĐỒ
+// ===============================
 function createCharts() {
   const ctxT = document.getElementById("chartTemp");
   const ctxH = document.getElementById("chartHum");
@@ -9,78 +11,67 @@ function createCharts() {
 
   tempChart = new Chart(ctxT, {
     type: "line",
-    data: {
-      labels: [],
-      datasets: [{
-        label: "Nhiệt độ (°C)",
-        data: [],
-        borderColor: "rgba(239,68,68,0.9)",
-        backgroundColor: "rgba(239,68,68,0.15)",
-        tension: 0.3
-      }]
-    },
-    options: { responsive: true, scales: { y: { beginAtZero: false } } }
+    data: { labels: [], datasets: [{
+      label: "Nhiệt độ (°C)",
+      data: [],
+      borderColor: "rgba(239,68,68,0.9)",
+      backgroundColor: "rgba(239,68,68,0.15)",
+      tension: 0.3
+    }]},
+    options: { responsive: true }
   });
 
   humChart = new Chart(ctxH, {
     type: "line",
-    data: {
-      labels: [],
-      datasets: [{
-        label: "Độ ẩm (%)",
-        data: [],
-        borderColor: "rgba(56,189,248,0.9)",
-        backgroundColor: "rgba(56,189,248,0.15)",
-        tension: 0.3
-      }]
-    },
-    options: { responsive: true, scales: { y: { beginAtZero: true } } }
+    data: { labels: [], datasets: [{
+      label: "Độ ẩm (%)",
+      data: [],
+      borderColor: "rgba(56,189,248,0.9)",
+      backgroundColor: "rgba(56,189,248,0.15)",
+      tension: 0.3
+    }]},
+    options: { responsive: true }
   });
 
   luxChart = new Chart(ctxL, {
     type: "line",
-    data: {
-      labels: [],
-      datasets: [{
-        label: "Ánh sáng (lux)",
-        data: [],
-        borderColor: "rgba(250,204,21,0.9)",
-        backgroundColor: "rgba(250,204,21,0.15)",
-        tension: 0.3
-      }]
-    },
-    options: { responsive: true, scales: { y: { beginAtZero: true } } }
+    data: { labels: [], datasets: [{
+      label: "Ánh sáng (lux)",
+      data: [],
+      borderColor: "rgba(250,204,21,0.9)",
+      backgroundColor: "rgba(250,204,21,0.15)",
+      tension: 0.3
+    }]},
+    options: { responsive: true }
   });
 }
 
-// ====== CẬP NHẬT BIỂU ĐỒ ======
+// ===============================
+//  CẬP NHẬT BIỂU ĐỒ
+// ===============================
 function updateCharts(data) {
   const time = new Date().toLocaleTimeString();
 
-  tempChart.data.labels.push(time);
-  humChart.data.labels.push(time);
-  luxChart.data.labels.push(time);
+  const charts = [tempChart, humChart, luxChart];
+  charts.forEach(chart => chart.data.labels.push(time));
 
   tempChart.data.datasets[0].data.push(data.nhietdo);
   humChart.data.datasets[0].data.push(data.doam);
   luxChart.data.datasets[0].data.push(data.anhSang);
 
   if (tempChart.data.labels.length > 20) {
-    tempChart.data.labels.shift();
-    humChart.data.labels.shift();
-    luxChart.data.labels.shift();
-
-    tempChart.data.datasets[0].data.shift();
-    humChart.data.datasets[0].data.shift();
-    luxChart.data.datasets[0].data.shift();
+    charts.forEach(chart => {
+      chart.data.labels.shift();
+      chart.data.datasets[0].data.shift();
+    });
   }
 
-  tempChart.update();
-  humChart.update();
-  luxChart.update();
+  charts.forEach(chart => chart.update());
 }
 
-// ====== LỊCH SỬ 10 BẢN GHI ======
+// ===============================
+//  LỊCH SỬ 10 BẢN GHI
+// ===============================
 async function loadHistory() {
   const res = await fetch("/api/cambien/recent");
   const list = await res.json();
@@ -89,7 +80,7 @@ async function loadHistory() {
   tbody.innerHTML = "";
 
   list.forEach(item => {
-    const row = `
+    tbody.innerHTML += `
       <tr>
         <td>${new Date(item.createdAt).toLocaleString()}</td>
         <td>${item.nhietdo}</td>
@@ -97,11 +88,12 @@ async function loadHistory() {
         <td>${item.anhSang}</td>
       </tr>
     `;
-    tbody.innerHTML += row;
   });
 }
 
-// ====== LOAD CẢM BIẾN ======
+// ===============================
+//  LOAD CẢM BIẾN
+// ===============================
 async function loadSensors() {
   const res = await fetch("/api/cambien/latest");
   const data = await res.json();
@@ -114,7 +106,9 @@ async function loadSensors() {
   updateCharts(data);
 }
 
-// ====== LOAD TRẠNG THÁI ======
+// ===============================
+//  LOAD TRẠNG THÁI THIẾT BỊ
+// ===============================
 async function loadStatus() {
   const res = await fetch("/api/trangthai/latest");
   const data = await res.json();
@@ -124,11 +118,11 @@ async function loadStatus() {
 
   const mapBool = v => v ? "Bật" : "Tắt";
 
-  document.getElementById("st-led1").innerText = mapBool(!!data.led1);
-  document.getElementById("st-led2").innerText = mapBool(!!data.led2);
-  document.getElementById("st-led3").innerText = mapBool(!!data.led3);
-  document.getElementById("st-led4").innerText = mapBool(!!data.led4);
-  document.getElementById("st-fan").innerText  = mapBool(!!data.fan);
+  document.getElementById("st-led1").innerText = mapBool(data.led1);
+  document.getElementById("st-led2").innerText = mapBool(data.led2);
+  document.getElementById("st-led3").innerText = mapBool(data.led3);
+  document.getElementById("st-led4").innerText = mapBool(data.led4);
+  document.getElementById("st-fan").innerText  = mapBool(data.fan);
 
   // Curtain
   let modeLabel = "--";
@@ -136,55 +130,52 @@ async function loadStatus() {
   else if (data.curtainMode === 1) modeLabel = "Đóng";
   else if (data.curtainMode === 2) modeLabel = "Mở";
 
-  document.getElementById("st-curtain").innerText       = modeLabel;
+  document.getElementById("st-curtain").innerText = modeLabel;
   document.getElementById("curtain-mode-label").innerText = modeLabel;
-  document.getElementById("curtain-percent").innerText  =
+  document.getElementById("curtain-percent").innerText =
     (data.curtainPercent ?? "--") + " %";
 
-  // Cập nhật trạng thái nút (màu active)
+  // Auto Mode
+  document.getElementById("auto-mode-label").innerText =
+    data.autoMode ? "ON" : "OFF";
+
+  // Last Action
+  document.getElementById("st-last").innerText =
+    data.lastAction || "--";
+
   updateControlButtons();
 }
 
-// ====== CẬP NHẬT MÀU / TRẠNG THÁI NÚT ======
+// ===============================
+//  CẬP NHẬT MÀU NÚT
+// ===============================
 function updateControlButtons() {
   if (!latestStatus) return;
 
   const setActive = (id, on) => {
     const el = document.getElementById(id);
-    if (!el) return;
     if (on) el.classList.add("active");
     else el.classList.remove("active");
   };
 
-  setActive("btn-led1", !!latestStatus.led1);
-  setActive("btn-led2", !!latestStatus.led2);
-  setActive("btn-led3", !!latestStatus.led3);
-  setActive("btn-led4", !!latestStatus.led4);
-  setActive("btn-fan",  !!latestStatus.fan);
+  setActive("btn-led1", latestStatus.led1);
+  setActive("btn-led2", latestStatus.led2);
+  setActive("btn-led3", latestStatus.led3);
+  setActive("btn-led4", latestStatus.led4);
+  setActive("btn-fan",  latestStatus.fan);
 
-  // Với rèm, disable nút theo mode nếu muốn:
   const btnOpen  = document.getElementById("btn-cur-open");
   const btnClose = document.getElementById("btn-cur-close");
-  const btnStop  = document.getElementById("btn-cur-stop");
 
-  if (latestStatus.curtainMode === 2) { // đang mở
-    btnOpen.disabled  = true;
-    btnClose.disabled = false;
-  } else if (latestStatus.curtainMode === 1) { // đang đóng
-    btnOpen.disabled  = false;
-    btnClose.disabled = true;
-  } else { // dừng
-    btnOpen.disabled  = false;
-    btnClose.disabled = false;
-  }
+  btnOpen.disabled  = latestStatus.curtainMode === 2;
+  btnClose.disabled = latestStatus.curtainMode === 1;
 }
 
-// ====== GỬI LỆNH LED ======
+// ===============================
+//  GỬI LỆNH LED
+// ===============================
 async function toggleLed(name) {
-  if (!latestStatus) await loadStatus();
-
-  const current = latestStatus?.[name] || false;
-  const newState = !current;
+  const newState = !latestStatus[name];
 
   await fetch("/api/cmd", {
     method: "POST",
@@ -195,14 +186,14 @@ async function toggleLed(name) {
     })
   });
 
-  setTimeout(loadStatus, 400);
+  setTimeout(loadStatus, 300);
 }
 
-// ====== GỬI LỆNH QUẠT ======
+// ===============================
+//  GỬI LỆNH QUẠT
+// ===============================
 async function toggleFan() {
-  if (!latestStatus) await loadStatus();
-  const current = latestStatus?.fan || false;
-  const newState = !current;
+  const newState = !latestStatus.fan;
 
   await fetch("/api/cmd", {
     method: "POST",
@@ -213,10 +204,12 @@ async function toggleFan() {
     })
   });
 
-  setTimeout(loadStatus, 400);
+  setTimeout(loadStatus, 300);
 }
 
-// ====== GỬI LỆNH RÈM ======
+// ===============================
+//  GỬI LỆNH RÈM
+// ===============================
 async function curtainCmd(cmd) {
   await fetch("/api/cmd", {
     method: "POST",
@@ -227,10 +220,71 @@ async function curtainCmd(cmd) {
     })
   });
 
-  setTimeout(loadStatus, 500);
+  setTimeout(loadStatus, 400);
 }
 
-// ====== VÒNG LẶP REFRESH ======
+// ===============================
+// AUTO MODE — BẬT / TẮT
+// ===============================
+async function toggleAutoMode() {
+  const current = latestStatus?.autoMode || false;
+  const newState = !current;
+
+  await fetch("/api/cmd", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      topic: "truong/home/cmd/auto",
+      cmd: newState ? "ON" : "OFF"
+    })
+  });
+
+  alert("Đã gửi lệnh Auto Mode: " + (newState ? "ON" : "OFF"));
+  setTimeout(loadStatus, 400);
+}
+
+// ===============================
+// AUTO MODE — LƯU CẤU HÌNH
+// ===============================
+async function saveAutoConfig() {
+  const body = {
+    tempMin: Number(document.getElementById("tempMin").value),
+    tempMax: Number(document.getElementById("tempMax").value),
+    lightMin: Number(document.getElementById("lightMin").value),
+    lightMax: Number(document.getElementById("lightMax").value),
+    humidityMin: Number(document.getElementById("humMin").value),
+    humidityMax: Number(document.getElementById("humMax").value),
+    autoMode: true
+  };
+
+  await fetch("/api/auto-config", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  });
+
+  alert("Đã lưu cấu hình Auto Mode");
+}
+
+// ===============================
+// LOAD CẤU HÌNH AUTO MODE
+// ===============================
+async function loadAutoConfig() {
+  const res = await fetch("/api/auto-config");
+  const cfg = await res.json();
+  if (!cfg) return;
+
+  document.getElementById("tempMin").value = cfg.tempMin ?? "";
+  document.getElementById("tempMax").value = cfg.tempMax ?? "";
+  document.getElementById("lightMin").value = cfg.lightMin ?? "";
+  document.getElementById("lightMax").value = cfg.lightMax ?? "";
+  document.getElementById("humMin").value = cfg.humidityMin ?? "";
+  document.getElementById("humMax").value = cfg.humidityMax ?? "";
+}
+
+// ===============================
+//  VÒNG LẶP REFRESH
+// ===============================
 async function refreshAll() {
   loadSensors();
   loadStatus();
@@ -238,6 +292,6 @@ async function refreshAll() {
 }
 
 createCharts();
+loadAutoConfig();
 refreshAll();
 setInterval(refreshAll, 3000);
-
