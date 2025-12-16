@@ -395,7 +395,6 @@ app.get("/api/cambien/stats", async (req, res) => {
 
   const start = new Date(from + "T00:00:00+07:00");
   const end   = new Date(to   + "T23:59:59+07:00");
-  end.setHours(23,59,59);
 
   let group = {};
 
