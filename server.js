@@ -6,22 +6,47 @@ const path = require("path");
 const cron = require("node-cron");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
+const cors = require("cors");
 
 const app = express();
+app.use(cors());
+app.use(express.json());
 
 // =====================================
 // 1. CONFIG
 // =====================================
 const MONGODB_URI = process.env.MONGODB_URI;
-const MQTT_URL    = process.env.MQTT_URL;
+const MQTT_URL    = process.env.MQTT_URL || "mqtt://test.mosquitto.org:1883";
 const PORT        = process.env.PORT || 3000;
 const JWT_SECRET  = process.env.JWT_SECRET || "truong-secret";
 
 // =====================================
-// 2. KẾT NỐI MONGODB
+// 2. KẾT NỐI MONGODB + AUTO CREATE ADMIN
 // =====================================
 mongoose.connect(MONGODB_URI)
-  .then(() => console.log("MongoDB connected"))
+  .then(async () => {
+    console.log("MongoDB connected");
+
+    // ===============================
+    // AUTO CREATE ADMIN IF NOT EXISTS
+    // ===============================
+    try {
+      const admin = await User.findOne({ role: "admin" });
+      if (!admin) {
+        const hash = await bcrypt.hash("123456", 10);
+        await User.create({
+          username: "admin",
+          passwordHash: hash,
+          role: "admin"
+        });
+        console.log("Admin created automatically: admin / 123456");
+      } else {
+        console.log("Admin already exists");
+      }
+    } catch (err) {
+      console.error("AUTO ADMIN ERROR:", err.message);
+    }
+  })
   .catch(err => console.error("MongoDB error:", err.message));
 
 // =====================================
@@ -35,7 +60,7 @@ const CamBien = mongoose.model("CamBien", new mongoose.Schema({
   anhSang: Number
 }, { timestamps: true }));
 
-// Trạng thái thiết bị (hiện tại)
+// Trạng thái thiết bị
 const TrangThai = mongoose.model("TrangThai", new mongoose.Schema({
   led1: Boolean,
   led2: Boolean,
@@ -53,7 +78,7 @@ const TrangThai = mongoose.model("TrangThai", new mongoose.Schema({
   lastAction: String
 }, { timestamps: true }));
 
-// Cấu hình Auto Mode
+// Auto Mode config
 const AutoConfig = mongoose.model("AutoConfig", new mongoose.Schema({
   tempMax: Number,
   tempMin: Number,
@@ -64,30 +89,30 @@ const AutoConfig = mongoose.model("AutoConfig", new mongoose.Schema({
   autoMode: Boolean
 }, { timestamps: true }));
 
-// Lịch bật/tắt thiết bị (Schedule)
+// Schedule
 const Schedule = mongoose.model("Schedule", new mongoose.Schema({
-  device: String,     // led1, led2, fan, curtain
-  action: String,     // ON, OFF, OPEN, CLOSE
-  time: String,       // HH:mm
-  repeat: String      // "once", "daily"
+  device: String,
+  action: String,
+  time: String,
+  repeat: String
 }, { timestamps: true }));
 
-// Kịch bản điều khiển (Scenario)
+// Scenario
 const Scenario = mongoose.model("Scenario", new mongoose.Schema({
   name: String,
-  condition: {         // điều kiện môi trường đơn giản
+  condition: {
     tempAbove: Number,
     tempBelow: Number,
     lightAbove: Number,
     lightBelow: Number
   },
-  actions: [{          // danh sách hành động
-    device: String,    // led1, fan, curtain
-    cmd: String        // ON, OFF, OPEN, CLOSE
+  actions: [{
+    device: String,
+    cmd: String
   }]
 }, { timestamps: true }));
 
-// Người dùng
+// User
 const User = mongoose.model("User", new mongoose.Schema({
   username: { type: String, unique: true },
   passwordHash: String,
@@ -114,7 +139,6 @@ mqttClient.on("message", async (topic, payload) => {
   try {
     const data = JSON.parse(payload.toString());
     if (data.deviceId && data.deviceId !== "esp32-001") return;
-
     delete data.deviceId;
 
     if (topic === "truong/home/cambien") {
@@ -162,7 +186,7 @@ function authMiddleware(requiredRole) {
   };
 }
 
-// Đăng ký (có thể dùng tạm để tạo admin, sau muốn thì tắt)
+// Đăng ký
 app.post("/api/auth/register", async (req, res) => {
   const { username, password, role } = req.body;
   if (!username || !password) {
@@ -202,24 +226,18 @@ async function autoEngine() {
     const sensor = await CamBien.findOne().sort({ createdAt: -1 });
     if (!sensor) return;
 
-    // AUTO: Nhiệt độ → quạt
     if (config.tempMax != null && sensor.nhietdo > config.tempMax) {
       mqttClient.publish("truong/home/cmd/fan", "ON");
-      console.log("AUTO: Bật quạt do nhiệt độ >", config.tempMax);
     }
     if (config.tempMin != null && sensor.nhietdo < config.tempMin) {
       mqttClient.publish("truong/home/cmd/fan", "OFF");
-      console.log("AUTO: Tắt quạt do nhiệt độ <", config.tempMin);
     }
 
-    // AUTO: Ánh sáng → rèm
     if (config.lightMax != null && sensor.anhSang > config.lightMax) {
       mqttClient.publish("truong/home/cmd/curtain", "CLOSE");
-      console.log("AUTO: Đóng rèm do ánh sáng >", config.lightMax);
     }
     if (config.lightMin != null && sensor.anhSang < config.lightMin) {
       mqttClient.publish("truong/home/cmd/curtain", "OPEN");
-      console.log("AUTO: Mở rèm do ánh sáng <", config.lightMin);
     }
 
   } catch (err) {
@@ -227,7 +245,6 @@ async function autoEngine() {
   }
 }
 
-// chạy mỗi 5 giây
 setInterval(autoEngine, 5000);
 
 // =====================================
@@ -254,7 +271,6 @@ async function scenarioEngine() {
       (sc.actions || []).forEach(a => {
         const topic = "truong/home/cmd/" + a.device;
         mqttClient.publish(topic, a.cmd);
-        console.log("   →", topic, "=", a.cmd);
       });
     }
   } catch (err) {
@@ -262,11 +278,10 @@ async function scenarioEngine() {
   }
 }
 
-// chạy mỗi 7 giây
 setInterval(scenarioEngine, 7000);
 
 // =====================================
-// 8. SCHEDULE ENGINE (node-cron)
+// 8. SCHEDULE ENGINE
 // =====================================
 cron.schedule("* * * * *", async () => {
   try {
@@ -279,7 +294,6 @@ cron.schedule("* * * * *", async () => {
     for (const sch of schedules) {
       const topic = "truong/home/cmd/" + sch.device;
       mqttClient.publish(topic, sch.action);
-      console.log("SCHEDULE:", sch.device, sch.action, "at", sch.time);
 
       if (sch.repeat === "once") {
         await Schedule.findByIdAndDelete(sch._id);
@@ -291,15 +305,8 @@ cron.schedule("* * * * *", async () => {
 });
 
 // =====================================
-// 9. EXPRESS MIDDLEWARE & STATIC
+// 9. API CẢM BIẾN
 // =====================================
-app.use(express.json());
-app.use(express.static(path.join(__dirname, "public")));
-
-// =====================================
-// 10. API CẢM BIẾN
-// =====================================
-
 app.get("/api/cambien/latest", async (req, res) => {
   const doc = await CamBien.findOne().sort({ createdAt: -1 });
   res.json(doc || {});
@@ -311,46 +318,38 @@ app.get("/api/cambien/recent", async (req, res) => {
 });
 
 // =====================================
-// 11. API TRẠNG THÁI THIẾT BỊ
+// 10. API TRẠNG THÁI
 // =====================================
-
 app.get("/api/trangthai/latest", async (req, res) => {
   const doc = await TrangThai.findOne();
   res.json(doc || {});
 });
 
 // =====================================
-// 12. API AUTO MODE CONFIG
+// 11. API AUTO CONFIG
 // =====================================
-
-// Lấy cấu hình Auto mới nhất
 app.get("/api/auto-config", async (req, res) => {
   const doc = await AutoConfig.findOne().sort({ createdAt: -1 });
   res.json(doc || {});
 });
 
-// Lưu cấu hình Auto (chỉ admin)
 app.post("/api/auto-config", authMiddleware("admin"), async (req, res) => {
   try {
     await AutoConfig.create(req.body);
     res.json({ success: true });
   } catch (err) {
-    console.error("AutoConfig error:", err.message);
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
 // =====================================
-// 13. API SCHEDULE (LỊCH HOẠT ĐỘNG)
+// 12. API SCHEDULE
 // =====================================
-
-// Lấy danh sách lịch (admin)
 app.get("/api/schedule", authMiddleware("admin"), async (req, res) => {
   const docs = await Schedule.find().sort({ time: 1 });
   res.json(docs);
 });
 
-// Thêm lịch (admin)
 app.post("/api/schedule", authMiddleware("admin"), async (req, res) => {
   try {
     const doc = await Schedule.create(req.body);
@@ -360,23 +359,19 @@ app.post("/api/schedule", authMiddleware("admin"), async (req, res) => {
   }
 });
 
-// Xóa lịch (admin)
 app.delete("/api/schedule/:id", authMiddleware("admin"), async (req, res) => {
   await Schedule.findByIdAndDelete(req.params.id);
   res.json({ success: true });
 });
 
 // =====================================
-// 14. API SCENARIO (KỊCH BẢN)
+// 13. API SCENARIO
 // =====================================
-
-// Lấy danh sách kịch bản (admin)
 app.get("/api/scenario", authMiddleware("admin"), async (req, res) => {
   const docs = await Scenario.find().sort({ createdAt: -1 });
   res.json(docs);
 });
 
-// Thêm kịch bản (admin)
 app.post("/api/scenario", authMiddleware("admin"), async (req, res) => {
   try {
     const doc = await Scenario.create(req.body);
@@ -386,18 +381,14 @@ app.post("/api/scenario", authMiddleware("admin"), async (req, res) => {
   }
 });
 
-// Xóa kịch bản (admin)
 app.delete("/api/scenario/:id", authMiddleware("admin"), async (req, res) => {
   await Scenario.findByIdAndDelete(req.params.id);
   res.json({ success: true });
 });
 
 // =====================================
-// 15. API ĐIỀU KHIỂN THIẾT BỊ
+// 14. API ĐIỀU KHIỂN THIẾT BỊ
 // =====================================
-
-// Gửi lệnh MQTT (LED, quạt, rèm, auto,...)
-// Cho phép cả user lẫn admin
 app.post("/api/cmd", authMiddleware(), (req, res) => {
   const { topic, cmd } = req.body;
   if (!topic || typeof cmd === "undefined") {
@@ -405,13 +396,17 @@ app.post("/api/cmd", authMiddleware(), (req, res) => {
   }
 
   mqttClient.publish(topic, String(cmd));
-  console.log("CMD:", topic, "=>", cmd);
   res.json({ success: true });
 });
+
+// =====================================
+// 15. STATIC FILES
+// =====================================
+app.use(express.static(path.join(__dirname, "public")));
 
 // =====================================
 // 16. START SERVER
 // =====================================
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(` Server running on port ${PORT}`);
 });
