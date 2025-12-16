@@ -451,9 +451,9 @@ app.get("/api/cambien/by-date", async (req, res) => {
 
     if (!date) return res.json([]);
 
-    const start = new Date(date);
-    const end = new Date(date);
-    end.setHours(23, 59, 59, 999);
+    //CHUẨN GIỜ VIỆT NAM (UTC+7)
+    const start = new Date(date + "T00:00:00+07:00");
+    const end   = new Date(date + "T23:59:59+07:00");
 
     const docs = await CamBien.find({
       createdAt: { $gte: start, $lte: end }
@@ -464,6 +464,7 @@ app.get("/api/cambien/by-date", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
 
 /* ===============================
    10. API TRẠNG THÁI
