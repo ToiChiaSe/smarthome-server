@@ -1,5 +1,44 @@
 let tempChart, humChart, luxChart;
 let latestStatus = null;
+let token = null;
+let role = null;
+let username = null;
+
+// ===============================
+//  AUTH & FETCH WRAPPER
+// ===============================
+function initAuth() {
+  token = localStorage.getItem("token");
+  role = localStorage.getItem("role");
+  username = localStorage.getItem("username");
+
+  if (!token) {
+    window.location.href = "/login.html";
+    return;
+  }
+
+  const infoEl = document.getElementById("user-info");
+  if (infoEl) {
+    infoEl.innerText = `Đăng nhập: ${username || "unknown"} (${role || "user"})`;
+  }
+}
+
+function logout() {
+  localStorage.removeItem("token");
+  localStorage.removeItem("role");
+  localStorage.removeItem("username");
+  window.location.href = "/login.html";
+}
+
+async function authFetch(url, options = {}) {
+  if (!token) initAuth();
+  const headers = options.headers || {};
+  headers["Authorization"] = "Bearer " + token;
+  if (!headers["Content-Type"] && options.body) {
+    headers["Content-Type"] = "application/json";
+  }
+  return fetch(url, { ...options, headers });
+}
 
 // ===============================
 //  TẠO BIỂU ĐỒ
@@ -46,9 +85,6 @@ function createCharts() {
   });
 }
 
-// ===============================
-//  CẬP NHẬT BIỂU ĐỒ
-// ===============================
 function updateCharts(data) {
   const time = new Date().toLocaleTimeString();
 
@@ -70,8 +106,20 @@ function updateCharts(data) {
 }
 
 // ===============================
-//  LỊCH SỬ 10 BẢN GHI
+//  CẢM BIẾN & LỊCH SỬ
 // ===============================
+async function loadSensors() {
+  const res = await fetch("/api/cambien/latest");
+  const data = await res.json();
+  if (!data || data.nhietdo === undefined) return;
+
+  document.getElementById("temp").innerText = data.nhietdo + " °C";
+  document.getElementById("hum").innerText = data.doam + " %";
+  document.getElementById("lux").innerText = data.anhSang + " lux";
+
+  updateCharts(data);
+}
+
 async function loadHistory() {
   const res = await fetch("/api/cambien/recent");
   const list = await res.json();
@@ -92,22 +140,7 @@ async function loadHistory() {
 }
 
 // ===============================
-//  LOAD CẢM BIẾN
-// ===============================
-async function loadSensors() {
-  const res = await fetch("/api/cambien/latest");
-  const data = await res.json();
-  if (!data || data.nhietdo === undefined) return;
-
-  document.getElementById("temp").innerText = data.nhietdo + " °C";
-  document.getElementById("hum").innerText = data.doam + " %";
-  document.getElementById("lux").innerText = data.anhSang + " lux";
-
-  updateCharts(data);
-}
-
-// ===============================
-//  LOAD TRẠNG THÁI THIẾT BỊ
+//  TRẠNG THÁI THIẾT BỊ
 // ===============================
 async function loadStatus() {
   const res = await fetch("/api/trangthai/latest");
@@ -115,7 +148,6 @@ async function loadStatus() {
   if (!data) return;
 
   latestStatus = data;
-
   const mapBool = v => v ? "Bật" : "Tắt";
 
   document.getElementById("st-led1").innerText = mapBool(data.led1);
@@ -124,7 +156,6 @@ async function loadStatus() {
   document.getElementById("st-led4").innerText = mapBool(data.led4);
   document.getElementById("st-fan").innerText  = mapBool(data.fan);
 
-  // Curtain
   let modeLabel = "--";
   if (data.curtainMode === 0) modeLabel = "Dừng";
   else if (data.curtainMode === 1) modeLabel = "Đóng";
@@ -135,25 +166,21 @@ async function loadStatus() {
   document.getElementById("curtain-percent").innerText =
     (data.curtainPercent ?? "--") + " %";
 
-  // Auto Mode
   document.getElementById("auto-mode-label").innerText =
     data.autoMode ? "ON" : "OFF";
 
-  // Last Action
   document.getElementById("st-last").innerText =
     data.lastAction || "--";
 
   updateControlButtons();
 }
 
-// ===============================
-//  CẬP NHẬT MÀU NÚT
-// ===============================
 function updateControlButtons() {
   if (!latestStatus) return;
 
   const setActive = (id, on) => {
     const el = document.getElementById(id);
+    if (!el) return;
     if (on) el.classList.add("active");
     else el.classList.remove("active");
   };
@@ -172,14 +199,13 @@ function updateControlButtons() {
 }
 
 // ===============================
-//  GỬI LỆNH LED
+//  ĐIỀU KHIỂN THIẾT BỊ
 // ===============================
 async function toggleLed(name) {
-  const newState = !latestStatus[name];
+  const newState = !latestStatus?.[name];
 
-  await fetch("/api/cmd", {
+  await authFetch("/api/cmd", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       topic: "truong/home/cmd/" + name,
       cmd: newState ? "ON" : "OFF"
@@ -189,15 +215,11 @@ async function toggleLed(name) {
   setTimeout(loadStatus, 300);
 }
 
-// ===============================
-//  GỬI LỆNH QUẠT
-// ===============================
 async function toggleFan() {
-  const newState = !latestStatus.fan;
+  const newState = !latestStatus?.fan;
 
-  await fetch("/api/cmd", {
+  await authFetch("/api/cmd", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       topic: "truong/home/cmd/fan",
       cmd: newState ? "ON" : "OFF"
@@ -207,13 +229,9 @@ async function toggleFan() {
   setTimeout(loadStatus, 300);
 }
 
-// ===============================
-//  GỬI LỆNH RÈM
-// ===============================
 async function curtainCmd(cmd) {
-  await fetch("/api/cmd", {
+  await authFetch("/api/cmd", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       topic: "truong/home/cmd/curtain",
       cmd
@@ -224,15 +242,14 @@ async function curtainCmd(cmd) {
 }
 
 // ===============================
-// AUTO MODE — BẬT / TẮT
+//  AUTO MODE
 // ===============================
 async function toggleAutoMode() {
   const current = latestStatus?.autoMode || false;
   const newState = !current;
 
-  await fetch("/api/cmd", {
+  await authFetch("/api/cmd", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       topic: "truong/home/cmd/auto",
       cmd: newState ? "ON" : "OFF"
@@ -243,10 +260,12 @@ async function toggleAutoMode() {
   setTimeout(loadStatus, 400);
 }
 
-// ===============================
-// AUTO MODE — LƯU CẤU HÌNH
-// ===============================
 async function saveAutoConfig() {
+  if (role !== "admin") {
+    alert("Chỉ admin mới được chỉnh cấu hình Auto");
+    return;
+  }
+
   const body = {
     tempMin: Number(document.getElementById("tempMin").value),
     tempMax: Number(document.getElementById("tempMax").value),
@@ -257,20 +276,16 @@ async function saveAutoConfig() {
     autoMode: true
   };
 
-  await fetch("/api/auto-config", {
+  await authFetch("/api/auto-config", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body)
   });
 
   alert("Đã lưu cấu hình Auto Mode");
 }
 
-// ===============================
-// LOAD CẤU HÌNH AUTO MODE
-// ===============================
 async function loadAutoConfig() {
-  const res = await fetch("/api/auto-config");
+  const res = await authFetch("/api/auto-config");
   const cfg = await res.json();
   if (!cfg) return;
 
@@ -283,14 +298,171 @@ async function loadAutoConfig() {
 }
 
 // ===============================
-//  VÒNG LẶP REFRESH
+//  SCHEDULE UI
+// ===============================
+async function loadSchedule() {
+  if (role !== "admin") {
+    document.querySelector("#scheduleTable tbody").innerHTML =
+      `<tr><td colspan="5">Chỉ admin xem được lịch</td></tr>`;
+    return;
+  }
+
+  const res = await authFetch("/api/schedule");
+  const list = await res.json();
+
+  const tbody = document.querySelector("#scheduleTable tbody");
+  tbody.innerHTML = "";
+
+  list.forEach(item => {
+    tbody.innerHTML += `
+      <tr>
+        <td>${item.device}</td>
+        <td>${item.action}</td>
+        <td>${item.time}</td>
+        <td>${item.repeat}</td>
+        <td><button class="ctrl-btn" onclick="deleteSchedule('${item._id}')">Xóa</button></td>
+      </tr>
+    `;
+  });
+}
+
+async function addSchedule() {
+  if (role !== "admin") {
+    alert("Chỉ admin mới được thêm lịch");
+    return;
+  }
+
+  const device = document.getElementById("sch-device").value;
+  const action = document.getElementById("sch-action").value;
+  const time   = document.getElementById("sch-time").value;
+  const repeat = document.getElementById("sch-repeat").value;
+
+  if (!time) {
+    alert("Vui lòng chọn thời gian");
+    return;
+  }
+
+  await authFetch("/api/schedule", {
+    method: "POST",
+    body: JSON.stringify({ device, action, time, repeat })
+  });
+
+  alert("Đã thêm lịch");
+  loadSchedule();
+}
+
+async function deleteSchedule(id) {
+  if (!confirm("Xóa lịch này?")) return;
+
+  await authFetch("/api/schedule/" + id, {
+    method: "DELETE"
+  });
+
+  loadSchedule();
+}
+
+// ===============================
+//  SCENARIO UI
+// ===============================
+async function loadScenario() {
+  if (role !== "admin") {
+    document.querySelector("#scenarioTable tbody").innerHTML =
+      `<tr><td colspan="4">Chỉ admin xem được kịch bản</td></tr>`;
+    return;
+  }
+
+  const res = await authFetch("/api/scenario");
+  const list = await res.json();
+
+  const tbody = document.querySelector("#scenarioTable tbody");
+  tbody.innerHTML = "";
+
+  list.forEach(item => {
+    const condParts = [];
+    if (item.condition?.tempAbove != null) condParts.push(`Temp > ${item.condition.tempAbove}`);
+    if (item.condition?.tempBelow != null) condParts.push(`Temp < ${item.condition.tempBelow}`);
+    if (item.condition?.lightAbove != null) condParts.push(`Light > ${item.condition.lightAbove}`);
+    if (item.condition?.lightBelow != null) condParts.push(`Light < ${item.condition.lightBelow}`);
+    const condStr = condParts.join(", ") || "Không";
+
+    const acts = (item.actions || []).map(a => `${a.device}:${a.cmd}`).join(", ");
+
+    tbody.innerHTML += `
+      <tr>
+        <td>${item.name}</td>
+        <td>${condStr}</td>
+        <td>${acts}</td>
+        <td><button class="ctrl-btn" onclick="deleteScenario('${item._id}')">Xóa</button></td>
+      </tr>
+    `;
+  });
+}
+
+async function addScenario() {
+  if (role !== "admin") {
+    alert("Chỉ admin mới được thêm kịch bản");
+    return;
+  }
+
+  const name       = document.getElementById("sc-name").value.trim();
+  const tempAbove  = Number(document.getElementById("sc-tempAbove").value);
+  const lightAbove = Number(document.getElementById("sc-lightAbove").value);
+  const device     = document.getElementById("sc-device").value;
+  const cmd        = document.getElementById("sc-cmd").value;
+
+  if (!name) {
+    alert("Nhập tên kịch bản");
+    return;
+  }
+
+  const condition = {};
+  if (!isNaN(tempAbove) && document.getElementById("sc-tempAbove").value !== "") {
+    condition.tempAbove = tempAbove;
+  }
+  if (!isNaN(lightAbove) && document.getElementById("sc-lightAbove").value !== "") {
+    condition.lightAbove = lightAbove;
+  }
+
+  const body = {
+    name,
+    condition,
+    actions: [{ device, cmd }]
+  };
+
+  await authFetch("/api/scenario", {
+    method: "POST",
+    body: JSON.stringify(body)
+  });
+
+  alert("Đã thêm kịch bản");
+  loadScenario();
+}
+
+async function deleteScenario(id) {
+  if (!confirm("Xóa kịch bản này?")) return;
+
+  await authFetch("/api/scenario/" + id, {
+    method: "DELETE"
+  });
+
+  loadScenario();
+}
+
+// ===============================
+//  REFRESH VÒNG LẶP
 // ===============================
 async function refreshAll() {
   loadSensors();
   loadStatus();
   loadHistory();
+  loadSchedule();
+  loadScenario();
 }
 
+// ===============================
+//  INIT
+// ===============================
+initAuth();
 createCharts();
 loadAutoConfig();
 refreshAll();
