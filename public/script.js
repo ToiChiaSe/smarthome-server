@@ -406,10 +406,150 @@ function refreshAll() {
   loadStatus();
   loadAutoLog();
   loadHistory();
+  updateCharts();
 }
 
 setInterval(refreshAll, 3000);
+// ===============================
+// CHARTS (NÂNG CẤP ĐẸP HƠN)
+// ===============================
+let chartTemp, chartHum, chartLux;
 
+// Tạo gradient màu đẹp
+function createGradient(ctx, color) {
+  const gradient = ctx.createLinearGradient(0, 0, 0, 200);
+  gradient.addColorStop(0, color + "cc"); // đậm
+  gradient.addColorStop(1, color + "00"); // trong suốt
+  return gradient;
+}
+
+function createCharts() {
+  const ctxTemp = document.getElementById("chartTemp").getContext("2d");
+  const ctxHum  = document.getElementById("chartHum").getContext("2d");
+  const ctxLux  = document.getElementById("chartLux").getContext("2d");
+
+  chartTemp = new Chart(ctxTemp, {
+    type: "line",
+    data: {
+      labels: [],
+      datasets: [{
+        label: "Nhiệt độ (°C)",
+        data: [],
+        borderColor: "#ff4d4d",
+        backgroundColor: createGradient(ctxTemp, "#ff4d4d"),
+        borderWidth: 2,
+        tension: 0.35,
+        fill: true,
+        pointRadius: 2,
+        pointBackgroundColor: "#ff4d4d"
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { labels: { color: "#fff" } },
+        tooltip: { enabled: true }
+      },
+      scales: {
+        x: { ticks: { color: "#ccc" } },
+        y: { ticks: { color: "#ccc" }, beginAtZero: false }
+      }
+    }
+  });
+
+  chartHum = new Chart(ctxHum, {
+    type: "line",
+    data: {
+      labels: [],
+      datasets: [{
+        label: "Độ ẩm (%)",
+        data: [],
+        borderColor: "#4da6ff",
+        backgroundColor: createGradient(ctxHum, "#4da6ff"),
+        borderWidth: 2,
+        tension: 0.35,
+        fill: true,
+        pointRadius: 2,
+        pointBackgroundColor: "#4da6ff"
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { labels: { color: "#fff" } },
+        tooltip: { enabled: true }
+      },
+      scales: {
+        x: { ticks: { color: "#ccc" } },
+        y: { ticks: { color: "#ccc" }, beginAtZero: false }
+      }
+    }
+  });
+
+  chartLux = new Chart(ctxLux, {
+    type: "line",
+    data: {
+      labels: [],
+      datasets: [{
+        label: "Ánh sáng (lux)",
+        data: [],
+        borderColor: "#ffd24d",
+        backgroundColor: createGradient(ctxLux, "#ffd24d"),
+        borderWidth: 2,
+        tension: 0.35,
+        fill: true,
+        pointRadius: 2,
+        pointBackgroundColor: "#ffd24d"
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { labels: { color: "#fff" } },
+        tooltip: { enabled: true }
+      },
+      scales: {
+        x: { ticks: { color: "#ccc" } },
+        y: { ticks: { color: "#ccc" }, beginAtZero: false }
+      }
+    }
+  });
+}
+
+// Cập nhật dữ liệu biểu đồ
+async function updateCharts() {
+  const res = await fetch("/api/cambien/recent");
+  const list = await res.json();
+
+  // Đảo ngược để biểu đồ chạy từ cũ → mới
+  const data = list.reverse();
+
+  const labels = data.map(r =>
+    new Date(r.createdAt).toLocaleString("vi-VN", {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric"
+    })
+  );
+  const temps = data.map(r => r.nhietdo);
+  const hums  = data.map(r => r.doam);
+  const luxs  = data.map(r => r.anhSang);
+
+  chartTemp.data.labels = labels;
+  chartTemp.data.datasets[0].data = temps;
+  chartTemp.update();
+
+  chartHum.data.labels = labels;
+  chartHum.data.datasets[0].data = hums;
+  chartHum.update();
+
+  chartLux.data.labels = labels;
+  chartLux.data.datasets[0].data = luxs;
+  chartLux.update();
+}
 // ===============================
 // INIT
 // ===============================
@@ -422,5 +562,8 @@ window.onload = () => {
     loadScenario();
     loadAutoLog();
     loadHistory();
+
+    createCharts();
+    updateCharts();
   }
 };
