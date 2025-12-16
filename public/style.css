@@ -17,8 +17,34 @@ body {
 
 h1 {
   text-align: center;
-  margin-bottom: 30px;
+  margin-bottom: 10px;
   font-weight: 600;
+}
+
+.top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  font-size: 14px;
+}
+
+.top-bar span {
+  color: #ccc;
+}
+
+.logout-btn {
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: none;
+  background: #ef4444;
+  color: #fff;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.logout-btn:hover {
+  background: #dc2626;
 }
 
 .card {
@@ -35,9 +61,7 @@ h1 {
   font-size: 20px;
 }
 
-/* ============================
-   CẢM BIẾN
-============================ */
+/* Cảm biến */
 .sensor-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -61,9 +85,7 @@ h1 {
   font-size: 22px;
 }
 
-/* ============================
-   TRẠNG THÁI
-============================ */
+/* Trạng thái */
 .status-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -79,9 +101,7 @@ h1 {
   font-size: 14px;
 }
 
-/* ============================
-   ĐIỀU KHIỂN
-============================ */
+/* Điều khiển */
 .control-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -116,18 +136,14 @@ h1 {
   cursor: not-allowed;
 }
 
-/* ============================
-   RÈM
-============================ */
+/* Rèm */
 .curtain-info {
   margin-top: 12px;
   font-size: 14px;
   color: #ccc;
 }
 
-/* ============================
-   AUTO MODE (NEW)
-============================ */
+/* AUTO MODE */
 .auto-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -154,9 +170,7 @@ h1 {
   color: #fff;
 }
 
-/* ============================
-   BẢNG LỊCH SỬ
-============================ */
+/* Bảng lịch sử + Schedule + Scenario */
 table {
   width: 100%;
   border-collapse: collapse;
@@ -181,10 +195,78 @@ table tr:nth-child(even) {
   background: #141722;
 }
 
-/* ============================
-   RESPONSIVE
-============================ */
+/* Schedule & Scenario form */
+.form-grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.form-grid-4 {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.form-grid-3 select,
+.form-grid-3 input,
+.form-grid-4 select,
+.form-grid-4 input {
+  width: 100%;
+  padding: 6px;
+  border-radius: 8px;
+  border: 1px solid #333;
+  background: #0d0f14;
+  color: #fff;
+  font-size: 13px;
+}
+
+/* Auth page */
+.auth-body {
+  background: #06070a;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+}
+
+.auth-container {
+  max-width: 360px;
+  width: 100%;
+}
+
+.auth-card {
+  background: #111318;
+  padding: 20px;
+  border-radius: 14px;
+  box-shadow: 0 0 25px rgba(0,0,0,0.45);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.auth-card input {
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid #333;
+  background: #0d0f14;
+  color: #fff;
+}
+
+.auth-error {
+  color: #f97373;
+  font-size: 13px;
+  min-height: 18px;
+}
+
+/* Responsive */
 @media (max-width: 768px) {
+  body {
+    padding: 10px;
+  }
+
   .sensor-grid {
     grid-template-columns: 1fr;
   }
@@ -202,6 +284,11 @@ table tr:nth-child(even) {
   }
 
   .auto-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .form-grid-3,
+  .form-grid-4 {
     grid-template-columns: 1fr;
   }
 }
