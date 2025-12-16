@@ -935,6 +935,5 @@ window.onload = () => {
     loadHistory();
 
     createCharts();
-    updateCharts();
   }
 };
