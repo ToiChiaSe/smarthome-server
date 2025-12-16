@@ -35,7 +35,18 @@ const TrangThai = mongoose.model("TrangThai", new mongoose.Schema({
   fanRPM: Number,
   fanRunning: Boolean,
   curtainPercent: Number,
-  curtainRunning: Boolean
+  curtainRunning: Boolean,
+  autoMode: Boolean,
+  lastAction: String
+}, { timestamps: true }));
+const AutoConfig = mongoose.model("AutoConfig", new mongoose.Schema({
+  tempMax: Number,
+  tempMin: Number,
+  lightMax: Number,
+  lightMin: Number,
+  humidityMax: Number,
+  humidityMin: Number,
+  autoMode: Boolean
 }, { timestamps: true }));
 
 // ====== MQTT CONNECT ======
@@ -69,6 +80,45 @@ mqttClient.on("message", async (topic, payload) => {
   }
 });
 
+// ====== AUTO MODE ENGINE ======
+async function autoEngine() {
+  try {
+    const config = await AutoConfig.findOne().sort({ createdAt: -1 });
+    if (!config || !config.autoMode) return;
+
+    const sensor = await CamBien.findOne().sort({ createdAt: -1 });
+    if (!sensor) return;
+
+    // ====== AUTO: Nhiệt độ ======
+    if (sensor.nhietdo > config.tempMax) {
+      mqttClient.publish("truong/home/cmd/fan", "ON");
+      console.log("AUTO: Bật quạt do nhiệt độ cao");
+    }
+
+    if (sensor.nhietdo < config.tempMin) {
+      mqttClient.publish("truong/home/cmd/fan", "OFF");
+      console.log("AUTO: Tắt quạt do nhiệt độ thấp");
+    }
+
+    // ====== AUTO: Ánh sáng ======
+    if (sensor.anhSang > config.lightMax) {
+      mqttClient.publish("truong/home/cmd/curtain", "CLOSE");
+      console.log("AUTO: Đóng rèm do ánh sáng mạnh");
+    }
+
+    if (sensor.anhSang < config.lightMin) {
+      mqttClient.publish("truong/home/cmd/curtain", "OPEN");
+      console.log("AUTO: Mở rèm do ánh sáng yếu");
+    }
+
+  } catch (err) {
+    console.error("AUTO ENGINE ERROR:", err.message);
+  }
+}
+
+// chạy mỗi 5 giây
+setInterval(autoEngine, 5000);
+
 // ====== EXPRESS API ======
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
@@ -87,7 +137,16 @@ app.get("/api/trangthai/latest", async (req, res) => {
   const doc = await TrangThai.findOne();
   res.json(doc || {});
 });
+app.get("/api/auto-config", async (req, res) => {
+  const doc = await AutoConfig.findOne().sort({ createdAt: -1 });
+  res.json(doc || {});
+});
+app.post("/api/auto-config", async (req, res) => {
+  await AutoConfig.create(req.body);
+  res.json({ success: true });
+});
 
+// ====== Điều khiển thiết bị ======
 app.post("/api/cmd", (req, res) => {
   const { topic, cmd } = req.body;
   mqttClient.publish(topic, cmd);
@@ -98,4 +157,3 @@ app.post("/api/cmd", (req, res) => {
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
-
