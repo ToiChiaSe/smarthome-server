@@ -402,7 +402,7 @@ app.get("/api/trangthai/latest", async (req, res) => {
 });
 
 // =====================================
-// 11. API AUTO CONFIG (GIỮ NGUYÊN, CHỈ THÊM FIELD MỚI OPTION)
+// 11. API AUTO CONFIG (SỬA ĐỂ CHO PHÉP TẮT AUTO MODE)
 // =====================================
 app.get("/api/auto-config", async (req, res) => {
   const doc = await AutoConfig.findOne().sort({ createdAt: -1 });
@@ -411,12 +411,23 @@ app.get("/api/auto-config", async (req, res) => {
 
 app.post("/api/auto-config", authMiddleware("admin"), async (req, res) => {
   try {
+    const existing = await AutoConfig.findOne().sort({ createdAt: -1 });
+
+    if (existing) {
+      // UPDATE
+      await AutoConfig.findByIdAndUpdate(existing._id, req.body);
+      return res.json({ success: true, updated: true });
+    }
+
+    // CREATE
     await AutoConfig.create(req.body);
-    res.json({ success: true });
+    res.json({ success: true, created: true });
+
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
+
 
 // =====================================
 // 12. API SCHEDULE (GIỮ NGUYÊN)
