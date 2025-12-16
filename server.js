@@ -329,8 +329,17 @@ app.get("/api/trangthai/latest", async (req, res) => {
 });
 
 // =====================================
-// 11. API AUTO CONFIG (ĐÃ SỬA fixTime)
+// 11. API AUTO CONFIG (ĐÃ SỬA HOÀN CHỈNH)
 // =====================================
+
+// Chuẩn hóa thời gian HH:mm
+function fixTime(t) {
+  if (!t) return "";
+  const [h, m] = t.split(":");
+  if (!h || !m) return "";
+  return `${h.padStart(2, "0")}:${m.padStart(2, "0")}`;
+}
+
 app.get("/api/auto-config", async (req, res) => {
   const doc = await AutoConfig.findOne().sort({ createdAt: -1 });
   res.json(doc || {});
@@ -346,32 +355,33 @@ app.post("/api/auto-config", authMiddleware("admin"), async (req, res) => {
       autoMode,
       autoFan, autoCurtain, autoLight
     } = req.body;
+    const hasAnyThreshold =
+      tempMin !== "" ||
+      tempMax !== "" ||
+      lightMin !== "" ||
+      lightMax !== "" ||
+      humidityMin !== "" ||
+      humidityMax !== "";
 
-    if (
-      tempMin === "" || tempMax === "" ||
-      lightMin === "" || lightMax === "" ||
-      humidityMin === "" || humidityMax === ""
-    ) {
+    if (!hasAnyThreshold) {
       return res.status(400).json({
         success: false,
-        error: "Vui lòng nhập đầy đủ các ngưỡng Auto Mode"
+        error: "Vui lòng nhập ít nhất 1 ngưỡng Auto Mode"
       });
     }
-
     if (autoMode && (!activeFrom || !activeTo)) {
       return res.status(400).json({
         success: false,
         error: "Vui lòng nhập thời gian hoạt động Auto Mode"
       });
     }
-
     const payload = {
-      tempMin: Number(tempMin),
-      tempMax: Number(tempMax),
-      lightMin: Number(lightMin),
-      lightMax: Number(lightMax),
-      humidityMin: Number(humidityMin),
-      humidityMax: Number(humidityMax),
+      tempMin: tempMin === "" ? null : Number(tempMin),
+      tempMax: tempMax === "" ? null : Number(tempMax),
+      lightMin: lightMin === "" ? null : Number(lightMin),
+      lightMax: lightMax === "" ? null : Number(lightMax),
+      humidityMin: humidityMin === "" ? null : Number(humidityMin),
+      humidityMax: humidityMax === "" ? null : Number(humidityMax),
       activeFrom: fixTime(activeFrom),
       activeTo: fixTime(activeTo),
       autoMode: !!autoMode,
@@ -379,14 +389,12 @@ app.post("/api/auto-config", authMiddleware("admin"), async (req, res) => {
       autoCurtain: !!autoCurtain,
       autoLight: !!autoLight
     };
-
     const existing = await AutoConfig.findOne().sort({ createdAt: -1 });
 
     if (existing) {
       await AutoConfig.findByIdAndUpdate(existing._id, payload);
       return res.json({ success: true, updated: true });
     }
-
     await AutoConfig.create(payload);
     res.json({ success: true, created: true });
 
