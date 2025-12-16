@@ -166,9 +166,6 @@ async function loadStatus() {
   document.getElementById("curtain-percent").innerText =
     (data.curtainPercent ?? "--") + " %";
 
-  document.getElementById("auto-mode-label").innerText =
-    data.autoMode ? "ON" : "OFF";
-
   document.getElementById("st-last").innerText =
     data.lastAction || "--";
 
@@ -242,24 +239,8 @@ async function curtainCmd(cmd) {
 }
 
 // ===============================
-//  AUTO MODE
+//  AUTO MODE (SERVER-BASED)
 // ===============================
-async function toggleAutoMode() {
-  const current = latestStatus?.autoMode || false;
-  const newState = !current;
-
-  await authFetch("/api/cmd", {
-    method: "POST",
-    body: JSON.stringify({
-      topic: "truong/home/cmd/auto",
-      cmd: newState ? "ON" : "OFF"
-    })
-  });
-
-  alert("Đã gửi lệnh Auto Mode: " + (newState ? "ON" : "OFF"));
-  setTimeout(loadStatus, 400);
-}
-
 async function saveAutoConfig() {
   if (role !== "admin") {
     alert("Chỉ admin mới được chỉnh cấu hình Auto");
@@ -273,6 +254,8 @@ async function saveAutoConfig() {
     lightMax: Number(document.getElementById("lightMax").value),
     humidityMin: Number(document.getElementById("humMin").value),
     humidityMax: Number(document.getElementById("humMax").value),
+    activeFrom: document.getElementById("activeFrom").value,
+    activeTo: document.getElementById("activeTo").value,
     autoMode: true
   };
 
@@ -295,6 +278,40 @@ async function loadAutoConfig() {
   document.getElementById("lightMax").value = cfg.lightMax ?? "";
   document.getElementById("humMin").value = cfg.humidityMin ?? "";
   document.getElementById("humMax").value = cfg.humidityMax ?? "";
+  document.getElementById("activeFrom").value = cfg.activeFrom ?? "";
+  document.getElementById("activeTo").value = cfg.activeTo ?? "";
+}
+
+// ===============================
+//  AUTO MODE LOG
+// ===============================
+async function loadAutoLog() {
+  const res = await authFetch("/api/auto-log/latest");
+  const list = await res.json();
+
+  const tbody = document.querySelector("#autoLogTable tbody");
+  tbody.innerHTML = "";
+
+  if (!list.length) {
+    tbody.innerHTML = `<tr><td colspan="4">Chưa có log</td></tr>`;
+    return;
+  }
+
+  // Hiển thị AutoMode đang chạy (log mới nhất)
+  const latest = list[0];
+  document.getElementById("auto-running").innerText =
+    `${latest.rule} — ${latest.action} (${new Date(latest.timestamp).toLocaleTimeString()})`;
+
+  list.forEach(item => {
+    tbody.innerHTML += `
+      <tr>
+        <td>${new Date(item.timestamp).toLocaleString()}</td>
+        <td>${item.rule}</td>
+        <td>${item.action}</td>
+        <td>${item.value ?? "--"}</td>
+      </tr>
+    `;
+  });
 }
 
 // ===============================
@@ -362,7 +379,7 @@ async function deleteSchedule(id) {
 }
 
 // ===============================
-//  SCENARIO UI
+//  SCENARIO UI (NÂNG CAO)
 // ===============================
 async function loadScenario() {
   if (role !== "admin") {
@@ -383,6 +400,9 @@ async function loadScenario() {
     if (item.condition?.tempBelow != null) condParts.push(`Temp < ${item.condition.tempBelow}`);
     if (item.condition?.lightAbove != null) condParts.push(`Light > ${item.condition.lightAbove}`);
     if (item.condition?.lightBelow != null) condParts.push(`Light < ${item.condition.lightBelow}`);
+    if (item.condition?.humidityAbove != null) condParts.push(`Hum > ${item.condition.humidityAbove}`);
+    if (item.condition?.humidityBelow != null) condParts.push(`Hum < ${item.condition.humidityBelow}`);
+
     const condStr = condParts.join(", ") || "Không";
 
     const acts = (item.actions || []).map(a => `${a.device}:${a.cmd}`).join(", ");
@@ -405,8 +425,12 @@ async function addScenario() {
   }
 
   const name       = document.getElementById("sc-name").value.trim();
-  const tempAbove  = Number(document.getElementById("sc-tempAbove").value);
-  const lightAbove = Number(document.getElementById("sc-lightAbove").value);
+  const tempAbove  = document.getElementById("sc-tempAbove").value;
+  const tempBelow  = document.getElementById("sc-tempBelow").value;
+  const lightAbove = document.getElementById("sc-lightAbove").value;
+  const lightBelow = document.getElementById("sc-lightBelow").value;
+  const humAbove   = document.getElementById("sc-humAbove").value;
+  const humBelow   = document.getElementById("sc-humBelow").value;
   const device     = document.getElementById("sc-device").value;
   const cmd        = document.getElementById("sc-cmd").value;
 
@@ -416,12 +440,12 @@ async function addScenario() {
   }
 
   const condition = {};
-  if (!isNaN(tempAbove) && document.getElementById("sc-tempAbove").value !== "") {
-    condition.tempAbove = tempAbove;
-  }
-  if (!isNaN(lightAbove) && document.getElementById("sc-lightAbove").value !== "") {
-    condition.lightAbove = lightAbove;
-  }
+  if (tempAbove !== "") condition.tempAbove = Number(tempAbove);
+  if (tempBelow !== "") condition.tempBelow = Number(tempBelow);
+  if (lightAbove !== "") condition.lightAbove = Number(lightAbove);
+  if (lightBelow !== "") condition.lightBelow = Number(lightBelow);
+  if (humAbove !== "") condition.humidityAbove = Number(humAbove);
+  if (humBelow !== "") condition.humidityBelow = Number(humBelow);
 
   const body = {
     name,
@@ -457,6 +481,7 @@ async function refreshAll() {
   loadHistory();
   loadSchedule();
   loadScenario();
+  loadAutoLog();
 }
 
 // ===============================
