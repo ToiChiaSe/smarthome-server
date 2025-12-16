@@ -393,8 +393,8 @@ app.get("/api/cambien/recent", async (req, res) => {
 app.get("/api/cambien/stats", async (req, res) => {
   const { from, to, mode } = req.query;
 
-  const start = new Date(from);
-  const end   = new Date(to);
+  const start = new Date(from + "T00:00:00+07:00");
+  const end   = new Date(to   + "T23:59:59+07:00");
   end.setHours(23,59,59);
 
   let group = {};
