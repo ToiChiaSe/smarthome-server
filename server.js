@@ -21,7 +21,7 @@ const PORT        = process.env.PORT || 3000;
 const JWT_SECRET  = process.env.JWT_SECRET || "truong-secret";
 
 // =====================================
-// 3. MODELS (Định nghĩa trước để dùng trong connect)
+// 3. MODELS
 // =====================================
 
 // Dữ liệu cảm biến
@@ -49,7 +49,7 @@ const TrangThai = mongoose.model("TrangThai", new mongoose.Schema({
   lastAction: String
 }, { timestamps: true }));
 
-// Auto Mode config (THÊM activeFrom, activeTo cho AutoMode theo thời gian)
+// Auto Mode config (có chọn thiết bị + thời gian)
 const AutoConfig = mongoose.model("AutoConfig", new mongoose.Schema({
   tempMax: Number,
   tempMin: Number,
@@ -58,8 +58,11 @@ const AutoConfig = mongoose.model("AutoConfig", new mongoose.Schema({
   humidityMax: Number,
   humidityMin: Number,
   autoMode: Boolean,
-  activeFrom: String, // "06:00"  (không bắt buộc)
-  activeTo: String    // "18:00"  (không bắt buộc)
+  activeFrom: String,  // "06:00"
+  activeTo: String,    // "18:00"
+  autoFan: Boolean,
+  autoCurtain: Boolean,
+  autoLight: Boolean
 }, { timestamps: true }));
 
 // Schedule
@@ -70,7 +73,7 @@ const Schedule = mongoose.model("Schedule", new mongoose.Schema({
   repeat: String
 }, { timestamps: true }));
 
-// Scenario (THÊM điều kiện độ ẩm, nhưng không bắt buộc)
+// Scenario (mở rộng điều kiện)
 const Scenario = mongoose.model("Scenario", new mongoose.Schema({
   name: String,
   condition: {
@@ -226,7 +229,7 @@ app.post("/api/auth/login", async (req, res) => {
 });
 
 // =====================================
-// 6. AUTO MODE ENGINE (NÂNG CAO)
+// 6. AUTO MODE ENGINE (NÂNG CAO + CHỌN THIẾT BỊ)
 // =====================================
 
 // Helper kiểm tra thời gian trong khoảng activeFrom - activeTo
@@ -259,54 +262,65 @@ async function autoEngine() {
     if (!sensor || !status) return;
 
     // ====== RULE 1: FAN (kết hợp nhiệt độ + độ ẩm) ======
-    if (config.tempMax != null && config.humidityMax != null) {
-      if (sensor.nhietdo > config.tempMax && sensor.doam < config.humidityMax && !status.fan) {
-        mqttClient.publish("truong/home/cmd/fan", "ON");
-        await AutoLog.create({
-          rule: "FAN_TEMP_HIGH_HUM_LOW",
-          action: "ON",
-          value: sensor.nhietdo,
-          extra: { nhietdo: sensor.nhietdo, doam: sensor.doam }
-        });
+    if (config.autoFan) {
+      if (config.tempMax != null && config.humidityMax != null) {
+        if (sensor.nhietdo > config.tempMax && sensor.doam < config.humidityMax && !status.fan) {
+          mqttClient.publish("truong/home/cmd/fan", "ON");
+          await AutoLog.create({
+            rule: "FAN_TEMP_HIGH_HUM_LOW",
+            action: "ON",
+            value: sensor.nhietdo,
+            extra: { nhietdo: sensor.nhietdo, doam: sensor.doam }
+          });
+        }
       }
-    }
 
-    if (config.tempMin != null && config.humidityMin != null) {
-      if ((sensor.nhietdo < config.tempMin || sensor.doam > config.humidityMin) && status.fan) {
-        mqttClient.publish("truong/home/cmd/fan", "OFF");
-        await AutoLog.create({
-          rule: "FAN_TEMP_LOW_OR_HUM_HIGH",
-          action: "OFF",
-          value: sensor.nhietdo,
-          extra: { nhietdo: sensor.nhietdo, doam: sensor.doam }
-        });
+      if (config.tempMin != null && config.humidityMin != null) {
+        if ((sensor.nhietdo < config.tempMin || sensor.doam > config.humidityMin) && status.fan) {
+          mqttClient.publish("truong/home/cmd/fan", "OFF");
+          await AutoLog.create({
+            rule: "FAN_TEMP_LOW_OR_HUM_HIGH",
+            action: "OFF",
+            value: sensor.nhietdo,
+            extra: { nhietdo: sensor.nhietdo, doam: sensor.doam }
+          });
+        }
       }
     }
 
     // ====== RULE 2: CURTAIN (kết hợp ánh sáng + nhiệt độ) ======
-    if (config.lightMax != null) {
-      if (sensor.anhSang > config.lightMax && sensor.nhietdo > (config.tempMin || 0) && status.curtainMode !== 1) {
-        mqttClient.publish("truong/home/cmd/curtain", "CLOSE");
-        await AutoLog.create({
-          rule: "CURTAIN_LIGHT_HIGH",
-          action: "CLOSE",
-          value: sensor.anhSang,
-          extra: { nhietdo: sensor.nhietdo, anhSang: sensor.anhSang }
-        });
+    if (config.autoCurtain) {
+      if (config.lightMax != null) {
+        if (sensor.anhSang > config.lightMax &&
+            sensor.nhietdo > (config.tempMin || 0) &&
+            status.curtainMode !== 1) {
+          mqttClient.publish("truong/home/cmd/curtain", "CLOSE");
+          await AutoLog.create({
+            rule: "CURTAIN_LIGHT_HIGH",
+            action: "CLOSE",
+            value: sensor.anhSang,
+            extra: { nhietdo: sensor.nhietdo, anhSang: sensor.anhSang }
+          });
+        }
+      }
+
+      if (config.lightMin != null) {
+        if (sensor.anhSang < config.lightMin &&
+            sensor.nhietdo < (config.tempMax || 100) &&
+            status.curtainMode !== 2) {
+          mqttClient.publish("truong/home/cmd/curtain", "OPEN");
+          await AutoLog.create({
+            rule: "CURTAIN_LIGHT_LOW",
+            action: "OPEN",
+            value: sensor.anhSang,
+            extra: { nhietdo: sensor.nhietdo, anhSang: sensor.anhSang }
+          });
+        }
       }
     }
 
-    if (config.lightMin != null) {
-      if (sensor.anhSang < config.lightMin && sensor.nhietdo < (config.tempMax || 100) && status.curtainMode !== 2) {
-        mqttClient.publish("truong/home/cmd/curtain", "OPEN");
-        await AutoLog.create({
-          rule: "CURTAIN_LIGHT_LOW",
-          action: "OPEN",
-          value: sensor.anhSang,
-          extra: { nhietdo: sensor.nhietdo, anhSang: sensor.anhSang }
-        });
-      }
-    }
+    // ====== RULE 3: LIGHT (nếu bạn muốn sau này thì bổ sung) ======
+    // if (config.autoLight) { ... }
 
   } catch (err) {
     console.error("AUTO ENGINE ERROR:", err.message);
@@ -345,7 +359,11 @@ async function scenarioEngine() {
           rule: "SCENARIO_" + sc.name,
           action: `${a.device}:${a.cmd}`,
           value: null,
-          extra: { nhietdo: sensor.nhietdo, doam: sensor.doam, anhSang: sensor.anhSang }
+          extra: {
+            nhietdo: sensor.nhietdo,
+            doam: sensor.doam,
+            anhSang: sensor.anhSang
+          }
         });
       }
     }
@@ -357,7 +375,7 @@ async function scenarioEngine() {
 setInterval(scenarioEngine, 7000);
 
 // =====================================
-// 8. SCHEDULE ENGINE (GIỮ NGUYÊN)
+// 8. SCHEDULE ENGINE (GIỮ LOGIC, CÓ THỂ NÂNG CẤP SAU)
 // =====================================
 cron.schedule("* * * * *", async () => {
   try {
@@ -368,8 +386,16 @@ cron.schedule("* * * * *", async () => {
 
     const schedules = await Schedule.find({ time: currentTime });
     for (const sch of schedules) {
-      const topic = "truong/home/cmd/" + sch.device;
-      mqttClient.publish(topic, sch.action);
+      let { device, action } = sch;
+
+      // Nếu device là curtain và action là ON/OFF -> map sang OPEN/CLOSE
+      if (device === "curtain") {
+        if (action === "ON") action = "OPEN";
+        if (action === "OFF") action = "CLOSE";
+      }
+
+      const topic = "truong/home/cmd/" + device;
+      mqttClient.publish(topic, action);
 
       if (sch.repeat === "once") {
         await Schedule.findByIdAndDelete(sch._id);
@@ -381,7 +407,7 @@ cron.schedule("* * * * *", async () => {
 });
 
 // =====================================
-// 9. API CẢM BIẾN (GIỮ NGUYÊN)
+// 9. API CẢM BIẾN
 // =====================================
 app.get("/api/cambien/latest", async (req, res) => {
   const doc = await CamBien.findOne().sort({ createdAt: -1 });
@@ -394,7 +420,7 @@ app.get("/api/cambien/recent", async (req, res) => {
 });
 
 // =====================================
-// 10. API TRẠNG THÁI (GIỮ NGUYÊN)
+// 10. API TRẠNG THÁI
 // =====================================
 app.get("/api/trangthai/latest", async (req, res) => {
   const doc = await TrangThai.findOne();
@@ -402,7 +428,7 @@ app.get("/api/trangthai/latest", async (req, res) => {
 });
 
 // =====================================
-// 11. API AUTO CONFIG (SỬA ĐỂ CHO PHÉP TẮT AUTO MODE)
+// 11. API AUTO CONFIG (CÓ VALIDATION + UPDATE THAY VÌ LUÔN CREATE)
 // =====================================
 app.get("/api/auto-config", async (req, res) => {
   const doc = await AutoConfig.findOne().sort({ createdAt: -1 });
@@ -411,16 +437,58 @@ app.get("/api/auto-config", async (req, res) => {
 
 app.post("/api/auto-config", authMiddleware("admin"), async (req, res) => {
   try {
+    const {
+      tempMin, tempMax,
+      lightMin, lightMax,
+      humidityMin, humidityMax,
+      activeFrom, activeTo,
+      autoMode,
+      autoFan, autoCurtain, autoLight
+    } = req.body;
+
+    // VALIDATION — KHÔNG CHO LƯU NẾU THIẾU NGƯỠNG
+    if (
+      tempMin === "" || tempMax === "" ||
+      lightMin === "" || lightMax === "" ||
+      humidityMin === "" || humidityMax === ""
+    ) {
+      return res.status(400).json({
+        success: false,
+        error: "Vui lòng nhập đầy đủ các ngưỡng Auto Mode"
+      });
+    }
+
+    // VALIDATION — KHÔNG CHO LƯU NẾU BẬT AUTO MODE MÀ KHÔNG CÓ THỜI GIAN
+    if (autoMode && (!activeFrom || !activeTo)) {
+      return res.status(400).json({
+        success: false,
+        error: "Vui lòng nhập thời gian hoạt động Auto Mode"
+      });
+    }
+
     const existing = await AutoConfig.findOne().sort({ createdAt: -1 });
 
+    const payload = {
+      tempMin: Number(tempMin),
+      tempMax: Number(tempMax),
+      lightMin: Number(lightMin),
+      lightMax: Number(lightMax),
+      humidityMin: Number(humidityMin),
+      humidityMax: Number(humidityMax),
+      activeFrom,
+      activeTo,
+      autoMode: !!autoMode,
+      autoFan: !!autoFan,
+      autoCurtain: !!autoCurtain,
+      autoLight: !!autoLight
+    };
+
     if (existing) {
-      // UPDATE
-      await AutoConfig.findByIdAndUpdate(existing._id, req.body);
+      await AutoConfig.findByIdAndUpdate(existing._id, payload);
       return res.json({ success: true, updated: true });
     }
 
-    // CREATE
-    await AutoConfig.create(req.body);
+    await AutoConfig.create(payload);
     res.json({ success: true, created: true });
 
   } catch (err) {
@@ -428,9 +496,8 @@ app.post("/api/auto-config", authMiddleware("admin"), async (req, res) => {
   }
 });
 
-
 // =====================================
-// 12. API SCHEDULE (GIỮ NGUYÊN)
+// 12. API SCHEDULE
 // =====================================
 app.get("/api/schedule", authMiddleware("admin"), async (req, res) => {
   const docs = await Schedule.find().sort({ time: 1 });
@@ -452,7 +519,7 @@ app.delete("/api/schedule/:id", authMiddleware("admin"), async (req, res) => {
 });
 
 // =====================================
-// 13. API SCENARIO (GIỮ NGUYÊN LOGIC, SCHEMA ĐÃ ĐƯỢC MỞ RỘNG)
+// 13. API SCENARIO
 // =====================================
 app.get("/api/scenario", authMiddleware("admin"), async (req, res) => {
   const docs = await Scenario.find().sort({ createdAt: -1 });
@@ -474,7 +541,7 @@ app.delete("/api/scenario/:id", authMiddleware("admin"), async (req, res) => {
 });
 
 // =====================================
-// 14. API ĐIỀU KHIỂN THIẾT BỊ (GIỮ NGUYÊN)
+// 14. API ĐIỀU KHIỂN THIẾT BỊ
 // =====================================
 app.post("/api/cmd", authMiddleware(), (req, res) => {
   const { topic, cmd } = req.body;
@@ -487,7 +554,7 @@ app.post("/api/cmd", authMiddleware(), (req, res) => {
 });
 
 // =====================================
-// 15. API LOG AUTO MODE (MỚI THÊM CHO DASHBOARD)
+// 15. API LOG AUTO MODE
 // =====================================
 app.get("/api/auto-log/latest", authMiddleware("admin"), async (req, res) => {
   const logs = await AutoLog.find().sort({ timestamp: -1 }).limit(50);
