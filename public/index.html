@@ -11,9 +11,12 @@
   <div class="container">
     <h1>Smart Home Dashboard</h1>
 
-    <!-- ============================
-         CẢM BIẾN
-    ============================= -->
+    <div class="top-bar">
+      <span id="user-info">Chưa đăng nhập</span>
+      <button class="logout-btn" onclick="logout()">Đăng xuất</button>
+    </div>
+
+    <!-- CẢM BIẾN -->
     <section class="card">
       <h2>Thông số cảm biến</h2>
       <div class="sensor-grid">
@@ -32,9 +35,7 @@
       </div>
     </section>
 
-    <!-- ============================
-         TRẠNG THÁI THIẾT BỊ
-    ============================= -->
+    <!-- TRẠNG THÁI THIẾT BỊ -->
     <section class="card">
       <h2>Trạng thái thiết bị</h2>
       <div class="status-grid">
@@ -49,29 +50,25 @@
       </div>
     </section>
 
-    <!-- ============================
-         ĐIỀU KHIỂN LED + QUẠT
-    ============================= -->
+    <!-- ĐIỀU KHIỂN LED + QUẠT -->
     <section class="card">
       <h2>Điều khiển đèn & quạt</h2>
       <div class="control-grid">
-        <button class="ctrl-btn" onclick="toggleLed('led1')">LED 1</button>
-        <button class="ctrl-btn" onclick="toggleLed('led2')">LED 2</button>
-        <button class="ctrl-btn" onclick="toggleLed('led3')">LED 3</button>
-        <button class="ctrl-btn" onclick="toggleLed('led4')">LED 4</button>
-        <button class="ctrl-btn wide" onclick="toggleFan()">Quạt</button>
+        <button id="btn-led1" class="ctrl-btn" onclick="toggleLed('led1')">LED 1</button>
+        <button id="btn-led2" class="ctrl-btn" onclick="toggleLed('led2')">LED 2</button>
+        <button id="btn-led3" class="ctrl-btn" onclick="toggleLed('led3')">LED 3</button>
+        <button id="btn-led4" class="ctrl-btn" onclick="toggleLed('led4')">LED 4</button>
+        <button id="btn-fan"  class="ctrl-btn wide" onclick="toggleFan()">Quạt</button>
       </div>
     </section>
 
-    <!-- ============================
-         ĐIỀU KHIỂN RÈM
-    ============================= -->
+    <!-- ĐIỀU KHIỂN RÈM -->
     <section class="card">
-      <h2>🪟 Điều khiển rèm</h2>
+      <h2>Điều khiển rèm</h2>
       <div class="control-grid">
-        <button class="ctrl-btn" onclick="curtainCmd('OPEN')">Mở</button>
-        <button class="ctrl-btn" onclick="curtainCmd('STOP')">Dừng</button>
-        <button class="ctrl-btn" onclick="curtainCmd('CLOSE')">Đóng</button>
+        <button id="btn-cur-open"  class="ctrl-btn" onclick="curtainCmd('OPEN')">Mở</button>
+        <button id="btn-cur-stop"  class="ctrl-btn" onclick="curtainCmd('STOP')">Dừng</button>
+        <button id="btn-cur-close" class="ctrl-btn" onclick="curtainCmd('CLOSE')">Đóng</button>
       </div>
       <p class="curtain-info">
         Trạng thái: <span id="curtain-mode-label">--</span> — 
@@ -79,23 +76,17 @@
       </p>
     </section>
 
-    <!-- ============================
-         AUTO MODE (NEW)
-    ============================= -->
+    <!-- AUTO MODE -->
     <section class="card">
       <h2>Chế độ tự động (Auto Mode)</h2>
-
       <button class="ctrl-btn wide" onclick="toggleAutoMode()">Bật / Tắt Auto Mode</button>
 
       <h3 style="margin-top:20px">Cấu hình ngưỡng</h3>
-
       <div class="auto-grid">
         <label>Nhiệt độ min: <input id="tempMin" type="number"></label>
         <label>Nhiệt độ max: <input id="tempMax" type="number"></label>
-
         <label>Ánh sáng min: <input id="lightMin" type="number"></label>
         <label>Ánh sáng max: <input id="lightMax" type="number"></label>
-
         <label>Độ ẩm min: <input id="humMin" type="number"></label>
         <label>Độ ẩm max: <input id="humMax" type="number"></label>
       </div>
@@ -103,9 +94,90 @@
       <button class="ctrl-btn wide" onclick="saveAutoConfig()">Lưu cấu hình</button>
     </section>
 
-    <!-- ============================
-         BIỂU ĐỒ + LỊCH SỬ
-    ============================= -->
+    <!-- SCHEDULE -->
+    <section class="card">
+      <h2>Lịch hoạt động (Schedule)</h2>
+
+      <div class="form-grid-4">
+        <select id="sch-device">
+          <option value="led1">LED 1</option>
+          <option value="led2">LED 2</option>
+          <option value="led3">LED 3</option>
+          <option value="led4">LED 4</option>
+          <option value="fan">Quạt</option>
+          <option value="curtain">Rèm</option>
+        </select>
+
+        <select id="sch-action">
+          <option value="ON">ON / OPEN</option>
+          <option value="OFF">OFF / CLOSE</option>
+        </select>
+
+        <input id="sch-time" type="time" />
+
+        <select id="sch-repeat">
+          <option value="daily">Hàng ngày</option>
+          <option value="once">Một lần</option>
+        </select>
+      </div>
+
+      <button class="ctrl-btn" onclick="addSchedule()">Thêm lịch</button>
+
+      <table id="scheduleTable">
+        <thead>
+          <tr>
+            <th>Thiết bị</th>
+            <th>Hành động</th>
+            <th>Thời gian</th>
+            <th>Lặp lại</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <!-- SCENARIO -->
+    <section class="card">
+      <h2>Kịch bản điều khiển (Scenario)</h2>
+
+      <div class="form-grid-3">
+        <input id="sc-name" type="text" placeholder="Tên kịch bản (vd: Trời nắng bật quạt)" />
+        <input id="sc-tempAbove" type="number" placeholder="Temp > (°C, optional)" />
+        <input id="sc-lightAbove" type="number" placeholder="Light > (lux, optional)" />
+      </div>
+
+      <div class="form-grid-3">
+        <select id="sc-device">
+          <option value="led1">LED 1</option>
+          <option value="led2">LED 2</option>
+          <option value="led3">LED 3</option>
+          <option value="led4">LED 4</option>
+          <option value="fan">Quạt</option>
+          <option value="curtain">Rèm</option>
+        </select>
+        <select id="sc-cmd">
+          <option value="ON">ON / OPEN</option>
+          <option value="OFF">OFF / CLOSE</option>
+        </select>
+      </div>
+
+      <button class="ctrl-btn" onclick="addScenario()">Thêm kịch bản</button>
+
+      <table id="scenarioTable">
+        <thead>
+          <tr>
+            <th>Tên</th>
+            <th>Điều kiện</th>
+            <th>Hành động</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <!-- BÁO CÁO THỐNG KÊ -->
     <section class="card">
       <h2>Báo cáo thống kê</h2>
 
@@ -126,7 +198,6 @@
         <tbody></tbody>
       </table>
     </section>
-
   </div>
 
   <script src="script.js"></script>
