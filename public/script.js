@@ -281,6 +281,29 @@ async function loadAutoConfig() {
   document.getElementById("activeFrom").value = cfg.activeFrom ?? "";
   document.getElementById("activeTo").value = cfg.activeTo ?? "";
 }
+// ===============================
+//  BẬT / TẮT AUTO MODE (SERVER-BASED)
+// ===============================
+async function toggleAutoMode() {
+  const res = await authFetch("/api/auto-config");
+  const cfg = await res.json();
+
+  const newState = !cfg?.autoMode;
+
+  const body = {
+    ...cfg,
+    autoMode: newState
+  };
+
+  await authFetch("/api/auto-config", {
+    method: "POST",
+    body: JSON.stringify(body)
+  });
+
+  alert("Auto Mode: " + (newState ? "BẬT" : "TẮT"));
+  loadAutoConfig();
+}
+
 
 // ===============================
 //  AUTO MODE LOG
