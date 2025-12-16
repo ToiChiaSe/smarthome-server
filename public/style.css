@@ -1,1 +1,163 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background: #06070a;
+  color: #f5f5f5;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  margin: 0;
+  padding: 20px;
+}
+
+.container {
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+h1 {
+  text-align: center;
+  margin-bottom: 30px;
+  font-weight: 600;
+}
+
+.card {
+  background: #111318;
+  padding: 20px;
+  border-radius: 14px;
+  margin-bottom: 25px;
+  box-shadow: 0 0 25px rgba(0, 0, 0, 0.45);
+}
+
+.card h2 {
+  margin-top: 0;
+  margin-bottom: 15px;
+  font-size: 20px;
+}
+
+/* Cảm biến */
+.sensor-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 15px;
+}
+
+.sensor-box {
+  background: #181b22;
+  padding: 15px;
+  border-radius: 10px;
+  text-align: center;
+}
+
+.sensor-box span {
+  font-size: 14px;
+  color: #aaa;
+}
+
+.sensor-box h3 {
+  margin: 8px 0 0 0;
+  font-size: 22px;
+}
+
+/* Trạng thái */
+.status-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 20px;
+}
+
+.status-item {
+  display: flex;
+  justify-content: space-between;
+  background: #181b22;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+/* Điều khiển */
+.control-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.ctrl-btn {
+  padding: 10px;
+  border: none;
+  border-radius: 10px;
+  background: #1f6feb;
+  color: white;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.ctrl-btn.wide {
+  grid-column: span 4;
+}
+
+.ctrl-btn:hover {
+  background: #265ed8;
+}
+
+.ctrl-btn.active {
+  background: #22c55e;
+}
+
+.ctrl-btn:disabled {
+  background: #444;
+  cursor: not-allowed;
+}
+
+/* Rèm */
+.curtain-info {
+  margin-top: 12px;
+  font-size: 14px;
+  color: #ccc;
+}
+
+/* Bảng lịch sử */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 15px;
+  background: #181b22;
+  border-radius: 10px;
+  overflow: hidden;
+  font-size: 13px;
+}
+
+table th,
+table td {
+  padding: 8px 10px;
+  text-align: center;
+}
+
+table th {
+  background: #222634;
+}
+
+table tr:nth-child(even) {
+  background: #141722;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .sensor-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .status-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .control-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ctrl-btn.wide {
+    grid-column: span 2;
+  }
+}
 
