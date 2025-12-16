@@ -516,10 +516,6 @@ async function deleteScenario(id) {
 
   loadScenario();
 }
-
-// ===============================
-//  REFRESH VÒNG LẶP
-// ===============================
 async function refreshAll() {
   loadSensors();
   loadStatus();
@@ -538,3 +534,14 @@ createCharts();
 refreshAll();
 setInterval(refreshAll, 3000);
 
+// ===============================
+//  FIX TIME FORMAT (ĐỂ KHÔNG BỊ MẤT GIỜ)
+// ===============================
+function fixTime(t) {
+  if (!t) return "";
+  const parts = t.split(":");
+  if (parts.length !== 2) return "";
+  const h = parts[0].padStart(2, "0");
+  const m = parts[1].padStart(2, "0");
+  return `${h}:${m}`;
+}
