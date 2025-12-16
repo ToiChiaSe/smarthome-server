@@ -41,6 +41,17 @@ async function authFetch(url, options = {}) {
 }
 
 // ===============================
+//  ĐỒNG HỒ REALTIME
+// ===============================
+function updateClock() {
+  const now = new Date();
+  document.getElementById("clock").innerText =
+    now.toLocaleString("vi-VN");
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ===============================
 //  TẠO BIỂU ĐỒ
 // ===============================
 function createCharts() {
@@ -241,49 +252,6 @@ async function curtainCmd(cmd) {
 // ===============================
 //  AUTO MODE (SERVER-BASED)
 // ===============================
-async function saveAutoConfig() {
-  if (role !== "admin") {
-    alert("Chỉ admin mới được chỉnh cấu hình Auto");
-    return;
-  }
-
-  const body = {
-    tempMin: Number(document.getElementById("tempMin").value),
-    tempMax: Number(document.getElementById("tempMax").value),
-    lightMin: Number(document.getElementById("lightMin").value),
-    lightMax: Number(document.getElementById("lightMax").value),
-    humidityMin: Number(document.getElementById("humMin").value),
-    humidityMax: Number(document.getElementById("humMax").value),
-    activeFrom: document.getElementById("activeFrom").value,
-    activeTo: document.getElementById("activeTo").value,
-    autoMode: true
-  };
-
-  await authFetch("/api/auto-config", {
-    method: "POST",
-    body: JSON.stringify(body)
-  });
-
-  alert("Đã lưu cấu hình Auto Mode");
-}
-
-async function loadAutoConfig() {
-  const res = await authFetch("/api/auto-config");
-  const cfg = await res.json();
-  if (!cfg) return;
-
-  document.getElementById("tempMin").value = cfg.tempMin ?? "";
-  document.getElementById("tempMax").value = cfg.tempMax ?? "";
-  document.getElementById("lightMin").value = cfg.lightMin ?? "";
-  document.getElementById("lightMax").value = cfg.lightMax ?? "";
-  document.getElementById("humMin").value = cfg.humidityMin ?? "";
-  document.getElementById("humMax").value = cfg.humidityMax ?? "";
-  document.getElementById("activeFrom").value = cfg.activeFrom ?? "";
-  document.getElementById("activeTo").value = cfg.activeTo ?? "";
-}
-// ===============================
-//  BẬT / TẮT AUTO MODE (SERVER-BASED)
-// ===============================
 async function toggleAutoMode() {
   const res = await authFetch("/api/auto-config");
   const cfg = await res.json();
@@ -304,6 +272,61 @@ async function toggleAutoMode() {
   loadAutoConfig();
 }
 
+async function saveAutoConfig() {
+  if (role !== "admin") {
+    alert("Chỉ admin mới được chỉnh cấu hình Auto");
+    return;
+  }
+
+  const body = {
+    tempMin: document.getElementById("tempMin").value,
+    tempMax: document.getElementById("tempMax").value,
+    lightMin: document.getElementById("lightMin").value,
+    lightMax: document.getElementById("lightMax").value,
+    humidityMin: document.getElementById("humMin").value,
+    humidityMax: document.getElementById("humMax").value,
+    activeFrom: document.getElementById("activeFrom").value,
+    activeTo: document.getElementById("activeTo").value,
+    autoFan: document.getElementById("autoFan").checked,
+    autoCurtain: document.getElementById("autoCurtain").checked,
+    autoLight: document.getElementById("autoLight").checked,
+    autoMode: true
+  };
+
+  const res = await authFetch("/api/auto-config", {
+    method: "POST",
+    body: JSON.stringify(body)
+  });
+
+  const data = await res.json();
+  if (!data.success) {
+    alert(data.error);
+    return;
+  }
+
+  alert("Đã lưu cấu hình Auto Mode");
+}
+
+async function loadAutoConfig() {
+  const res = await authFetch("/api/auto-config");
+  const cfg = await res.json();
+  if (!cfg) return;
+
+  document.getElementById("tempMin").value = cfg.tempMin ?? "";
+  document.getElementById("tempMax").value = cfg.tempMax ?? "";
+  document.getElementById("lightMin").value = cfg.lightMin ?? "";
+  document.getElementById("lightMax").value = cfg.lightMax ?? "";
+  document.getElementById("humMin").value = cfg.humidityMin ?? "";
+  document.getElementById("humMax").value = cfg.humidityMax ?? "";
+  document.getElementById("activeFrom").value = cfg.activeFrom ?? "";
+  document.getElementById("activeTo").value = cfg.activeTo ?? "";
+  document.getElementById("autoFan").checked = cfg.autoFan ?? false;
+  document.getElementById("autoCurtain").checked = cfg.autoCurtain ?? false;
+  document.getElementById("autoLight").checked = cfg.autoLight ?? false;
+
+  document.getElementById("auto-mode-label").innerText =
+    cfg.autoMode ? "ON" : "OFF";
+}
 
 // ===============================
 //  AUTO MODE LOG
@@ -320,7 +343,6 @@ async function loadAutoLog() {
     return;
   }
 
-  // Hiển thị AutoMode đang chạy (log mới nhất)
   const latest = list[0];
   document.getElementById("auto-running").innerText =
     `${latest.rule} — ${latest.action} (${new Date(latest.timestamp).toLocaleTimeString()})`;
@@ -402,7 +424,7 @@ async function deleteSchedule(id) {
 }
 
 // ===============================
-//  SCENARIO UI (NÂNG CAO)
+//  SCENARIO UI
 // ===============================
 async function loadScenario() {
   if (role !== "admin") {
@@ -504,6 +526,7 @@ async function refreshAll() {
   loadHistory();
   loadSchedule();
   loadScenario();
+  loadAutoConfig();
   loadAutoLog();
 }
 
@@ -512,6 +535,6 @@ async function refreshAll() {
 // ===============================
 initAuth();
 createCharts();
-loadAutoConfig();
 refreshAll();
 setInterval(refreshAll, 3000);
+
