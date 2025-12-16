@@ -522,7 +522,6 @@ async function refreshAll() {
   loadHistory();
   loadSchedule();
   loadScenario();
-  loadAutoConfig();
   loadAutoLog();
 }
 
