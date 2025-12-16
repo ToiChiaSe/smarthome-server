@@ -13,6 +13,7 @@
 
     <div class="top-bar">
       <span id="user-info">Chưa đăng nhập</span>
+      <span id="clock" style="font-weight:bold;color:#4ade80"></span>
       <button class="logout-btn" onclick="logout()">Đăng xuất</button>
     </div>
 
@@ -95,6 +96,13 @@
       <div class="auto-grid">
         <label>Hoạt động từ: <input id="activeFrom" type="time"></label>
         <label>Đến: <input id="activeTo" type="time"></label>
+      </div>
+
+      <h3 style="margin-top:20px">Thiết bị tự động</h3>
+      <div class="auto-grid">
+        <label><input type="checkbox" id="autoFan"> Auto Quạt</label>
+        <label><input type="checkbox" id="autoCurtain"> Auto Rèm</label>
+        <label><input type="checkbox" id="autoLight"> Auto Đèn</label>
       </div>
 
       <button class="ctrl-btn wide" onclick="saveAutoConfig()">Lưu cấu hình</button>
