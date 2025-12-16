@@ -1,1 +1,109 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <title>Smart Home Dashboard</title>
+  <link rel="stylesheet" href="style.css" />
+  <!-- Chart.js cho biểu đồ -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <div class="container">
+    <h1>Smart Home Dashboard</h1>
+
+    <!-- CẢM BIẾN -->
+    <section class="card">
+      <h2>Thông số cảm biến</h2>
+      <div class="sensor-grid">
+        <div class="sensor-box">
+          <span>Nhiệt độ</span>
+          <h3 id="temp">-- °C</h3>
+        </div>
+        <div class="sensor-box">
+          <span>Độ ẩm</span>
+          <h3 id="hum">-- %</h3>
+        </div>
+        <div class="sensor-box">
+          <span>Ánh sáng</span>
+          <h3 id="lux">-- lux</h3>
+        </div>
+      </div>
+    </section>
+
+    <!-- TRẠNG THÁI THIẾT BỊ -->
+    <section class="card">
+      <h2>Trạng thái thiết bị</h2>
+      <div class="status-grid">
+        <div class="status-item">
+          <span>LED1:</span> <span id="st-led1">--</span>
+        </div>
+        <div class="status-item">
+          <span>LED2:</span> <span id="st-led2">--</span>
+        </div>
+        <div class="status-item">
+          <span>LED3:</span> <span id="st-led3">--</span>
+        </div>
+        <div class="status-item">
+          <span>LED4:</span> <span id="st-led4">--</span>
+        </div>
+        <div class="status-item">
+          <span>Quạt:</span> <span id="st-fan">--</span>
+        </div>
+        <div class="status-item">
+          <span>Rèm:</span> <span id="st-curtain">--</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ĐIỀU KHIỂN LED + QUẠT -->
+    <section class="card">
+      <h2>Điều khiển đèn & quạt</h2>
+      <div class="control-grid">
+        <button id="btn-led1" class="ctrl-btn" onclick="toggleLed('led1')">LED 1</button>
+        <button id="btn-led2" class="ctrl-btn" onclick="toggleLed('led2')">LED 2</button>
+        <button id="btn-led3" class="ctrl-btn" onclick="toggleLed('led3')">LED 3</button>
+        <button id="btn-led4" class="ctrl-btn" onclick="toggleLed('led4')">LED 4</button>
+        <button id="btn-fan"  class="ctrl-btn wide" onclick="toggleFan()">Quạt</button>
+      </div>
+    </section>
+
+    <!-- ĐIỀU KHIỂN RÈM 3 CHẾ ĐỘ -->
+    <section class="card">
+      <h2>🪟 Điều khiển rèm</h2>
+      <div class="control-grid">
+        <button id="btn-cur-open"  class="ctrl-btn" onclick="curtainCmd('OPEN')">Mở</button>
+        <button id="btn-cur-stop"  class="ctrl-btn" onclick="curtainCmd('STOP')">Dừng</button>
+        <button id="btn-cur-close" class="ctrl-btn" onclick="curtainCmd('CLOSE')">Đóng</button>
+      </div>
+      <p class="curtain-info">
+        Trạng thái: <span id="curtain-mode-label">--</span> — <span id="curtain-percent">-- %</span>
+      </p>
+    </section>
+
+    <!-- BÁO CÁO THỐNG KÊ -->
+    <section class="card">
+      <h2>Báo cáo thống kê</h2>
+
+      <canvas id="chartTemp" height="120"></canvas>
+      <canvas id="chartHum" height="120" style="margin-top:20px"></canvas>
+      <canvas id="chartLux" height="120" style="margin-top:20px"></canvas>
+
+      <h3 style="margin-top:30px">Lịch sử 10 bản ghi gần nhất</h3>
+      <table id="historyTable">
+        <thead>
+          <tr>
+            <th>Thời gian</th>
+            <th>Nhiệt độ</th>
+            <th>Độ ẩm</th>
+            <th>Ánh sáng</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
 
