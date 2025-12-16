@@ -91,7 +91,32 @@
         <label>Độ ẩm max: <input id="humMax" type="number"></label>
       </div>
 
+      <h3 style="margin-top:20px">Thời gian hoạt động</h3>
+      <div class="auto-grid">
+        <label>Hoạt động từ: <input id="activeFrom" type="time"></label>
+        <label>Đến: <input id="activeTo" type="time"></label>
+      </div>
+
       <button class="ctrl-btn wide" onclick="saveAutoConfig()">Lưu cấu hình</button>
+
+      <h3 style="margin-top:20px">AutoMode đang chạy</h3>
+      <p id="auto-running" style="font-weight:bold; color:#0077cc">--</p>
+    </section>
+
+    <!-- AUTO MODE LOG -->
+    <section class="card">
+      <h2>Lịch sử AutoMode</h2>
+      <table id="autoLogTable">
+        <thead>
+          <tr>
+            <th>Thời gian</th>
+            <th>Rule</th>
+            <th>Action</th>
+            <th>Giá trị</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
     </section>
 
     <!-- SCHEDULE -->
@@ -142,12 +167,19 @@
       <h2>Kịch bản điều khiển (Scenario)</h2>
 
       <div class="form-grid-3">
-        <input id="sc-name" type="text" placeholder="Tên kịch bản (vd: Trời nắng bật quạt)" />
-        <input id="sc-tempAbove" type="number" placeholder="Temp > (°C, optional)" />
-        <input id="sc-lightAbove" type="number" placeholder="Light > (lux, optional)" />
+        <input id="sc-name" type="text" placeholder="Tên kịch bản" />
+        <input id="sc-tempAbove" type="number" placeholder="Temp > (°C)" />
+        <input id="sc-tempBelow" type="number" placeholder="Temp < (°C)" />
       </div>
 
       <div class="form-grid-3">
+        <input id="sc-lightAbove" type="number" placeholder="Light > (lux)" />
+        <input id="sc-lightBelow" type="number" placeholder="Light < (lux)" />
+        <input id="sc-humAbove" type="number" placeholder="Humidity > (%)" />
+      </div>
+
+      <div class="form-grid-3">
+        <input id="sc-humBelow" type="number" placeholder="Humidity < (%)" />
         <select id="sc-device">
           <option value="led1">LED 1</option>
           <option value="led2">LED 2</option>
