@@ -170,7 +170,7 @@ h1 {
   color: #fff;
 }
 
-/* Bảng lịch sử + Schedule + Scenario */
+/* Bảng chung */
 table {
   width: 100%;
   border-collapse: collapse;
@@ -260,8 +260,6 @@ table tr:nth-child(even) {
   font-size: 13px;
   min-height: 18px;
 }
-
-/* ✅✅✅ AUTO RULE TABLE (PHẦN MỚI THÊM) ✅✅✅ */
 .auto-rule-table {
   width: 100%;
   margin-top: 15px;
