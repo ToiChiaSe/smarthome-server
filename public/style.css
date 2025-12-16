@@ -261,6 +261,50 @@ table tr:nth-child(even) {
   min-height: 18px;
 }
 
+/* ✅✅✅ AUTO RULE TABLE (PHẦN MỚI THÊM) ✅✅✅ */
+.auto-rule-table {
+  width: 100%;
+  margin-top: 15px;
+  border-collapse: collapse;
+  background: #181b22;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.auto-rule-table th {
+  background: #222634;
+  padding: 10px;
+  font-size: 14px;
+}
+
+.auto-rule-table td {
+  padding: 8px;
+}
+
+.auto-rule-table select {
+  width: 100%;
+  padding: 6px;
+  border-radius: 8px;
+  border: 1px solid #333;
+  background: #0d0f14;
+  color: #fff;
+  font-size: 13px;
+}
+
+.auto-rule-table button {
+  padding: 6px 10px;
+  border: none;
+  border-radius: 6px;
+  background: #ef4444;
+  color: white;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.auto-rule-table button:hover {
+  background: #dc2626;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   body {
