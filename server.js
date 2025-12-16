@@ -433,6 +433,60 @@ app.get("/api/cambien/recent", async (req, res) => {
   const docs = await CamBien.find().sort({ createdAt: -1 }).limit(10);
   res.json(docs);
 });
+// API thống kê theo ngày / tháng / năm
+app.get("/api/cambien/stats", async (req, res) => {
+  const { from, to, mode } = req.query;
+
+  const start = new Date(from);
+  const end   = new Date(to);
+  end.setHours(23,59,59);
+
+  let group = {};
+
+  if (mode === "day") {
+    group = {
+      _id: { 
+        y: { $year: "$createdAt" },
+        m: { $month: "$createdAt" },
+        d: { $dayOfMonth: "$createdAt" }
+      },
+      temp: { $avg: "$nhietdo" },
+      hum:  { $avg: "$doam" },
+      lux:  { $avg: "$anhSang" }
+    };
+  }
+
+  if (mode === "month") {
+    group = {
+      _id: { 
+        y: { $year: "$createdAt" },
+        m: { $month: "$createdAt" }
+      },
+      temp: { $avg: "$nhietdo" },
+      hum:  { $avg: "$doam" },
+      lux:  { $avg: "$anhSang" }
+    };
+  }
+
+  if (mode === "year") {
+    group = {
+      _id: { 
+        y: { $year: "$createdAt" }
+      },
+      temp: { $avg: "$nhietdo" },
+      hum:  { $avg: "$doam" },
+      lux:  { $avg: "$anhSang" }
+    };
+  }
+
+  const data = await CamBien.aggregate([
+    { $match: { createdAt: { $gte: start, $lte: end } } },
+    { $group: group },
+    { $sort: { "_id.y": 1, "_id.m": 1, "_id.d": 1 } }
+  ]);
+
+  res.json(data);
+});
 
 // =====================================
 // 10. API TRẠNG THÁI
