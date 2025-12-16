@@ -23,15 +23,15 @@
       <div class="sensor-grid">
         <div class="sensor-box">
           <span>Nhiệt độ</span>
-          <h3 id="temp">-- °C</h3>
+          <h3><span id="temp">--</span> °C</h3>
         </div>
         <div class="sensor-box">
           <span>Độ ẩm</span>
-          <h3 id="hum">-- %</h3>
+          <h3><span id="hum">--</span> %</h3>
         </div>
         <div class="sensor-box">
           <span>Ánh sáng</span>
-          <h3 id="lux">-- lux</h3>
+          <h3><span id="lux">--</span> lux</h3>
         </div>
       </div>
     </section>
@@ -80,7 +80,9 @@
     <!-- AUTO MODE -->
     <section class="card">
       <h2>Chế độ tự động (Auto Mode)</h2>
-      <button class="ctrl-btn wide" onclick="toggleAutoMode()">Bật / Tắt Auto Mode</button>
+
+      <!-- Nếu muốn có nút bật/tắt AutoMode riêng, có thể dùng sau -->
+      <!-- <button class="ctrl-btn wide" onclick="toggleAutoMode()">Bật / Tắt Auto Mode</button> -->
 
       <h3 style="margin-top:20px">Cấu hình ngưỡng</h3>
       <div class="auto-grid">
@@ -98,13 +100,23 @@
         <label>Đến: <input id="activeTo" type="time"></label>
       </div>
 
-      <h3 style="margin-top:20px">Thiết bị tự động</h3>
-      <div class="auto-grid">
-        <label><input type="checkbox" id="autoFan"> Auto Quạt</label>
-        <label><input type="checkbox" id="autoCurtain"> Auto Rèm</label>
-        <label><input type="checkbox" id="autoLight"> Auto Đèn</label>
-      </div>
+      <h3 style="margin-top:20px">Danh sách Rule Auto</h3>
+      <table id="autoRuleTable" class="auto-rule-table">
+        <thead>
+          <tr>
+            <th>Thiết bị</th>
+            <th>Cảm biến</th>
+            <th>Điều kiện</th>
+            <th>Hành động</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
 
+      <button class="ctrl-btn" style="margin-top:10px" onclick="addAutoRule()">+ Thêm rule</button>
+
+      <br><br>
       <button class="ctrl-btn wide" onclick="saveAutoConfig()">Lưu cấu hình</button>
 
       <h3 style="margin-top:20px">AutoMode đang chạy</h3>
