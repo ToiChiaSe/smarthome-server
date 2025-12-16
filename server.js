@@ -49,12 +49,7 @@ const TrangThai = mongoose.model("TrangThai", new mongoose.Schema({
   lastAction: String
 }, { timestamps: true }));
 
-// Auto Mode config – NGƯỠNG THEO CẢM BIẾN + DANH SÁCH RULE
-// Mỗi rule trong autoDevices:
-//   device: "fan" | "curtain" | "led1" | "led2" | "led3" | "led4"
-//   sensor: "temp" | "light" | "humidity"
-//   mode: "above" (>= max) | "below" (<= min)
-//   action: "ON" | "OFF" | "OPEN" | "CLOSE" | "STOP"
+// Auto Mode config
 const AutoConfig = mongoose.model("AutoConfig", new mongoose.Schema({
   tempMax: Number,
   tempMin: Number,
@@ -64,8 +59,8 @@ const AutoConfig = mongoose.model("AutoConfig", new mongoose.Schema({
   humidityMin: Number,
 
   autoMode: Boolean,
-  activeFrom: String,  // "HH:mm"
-  activeTo: String,    // "HH:mm"
+  activeFrom: String,
+  activeTo: String,
 
   autoDevices: [
     {
@@ -85,7 +80,7 @@ const Schedule = mongoose.model("Schedule", new mongoose.Schema({
   repeat: String
 }, { timestamps: true }));
 
-// Scenario (mở rộng điều kiện)
+// Scenario
 const Scenario = mongoose.model("Scenario", new mongoose.Schema({
   name: String,
   condition: {
@@ -109,12 +104,12 @@ const User = mongoose.model("User", new mongoose.Schema({
   role: { type: String, enum: ["admin", "user"], default: "user" }
 }, { timestamps: true }));
 
-// Log lịch sử AutoMode
+// AutoLog
 const AutoLog = mongoose.model("AutoLog", new mongoose.Schema({
-  rule: String,       // tên rule, ví dụ: FAN_TEMP_HIGH
-  action: String,     // lệnh gửi, ví dụ: "ON", "OFF", "OPEN", "CLOSE"
-  value: Number,      // giá trị điều kiện (ví dụ: nhiệt độ tại thời điểm kích hoạt)
-  extra: Object,      // có thể chứa thêm sensor/status
+  rule: String,
+  action: String,
+  value: Number,
+  extra: Object,
   timestamp: { type: Date, default: Date.now }
 }));
 
@@ -210,43 +205,13 @@ function authMiddleware(requiredRole) {
     }
   };
 }
-
-// Đăng ký
-app.post("/api/auth/register", async (req, res) => {
-  const { username, password, role } = req.body;
-  if (!username || !password) {
-    return res.status(400).json({ success: false, error: "Thiếu username hoặc password" });
-  }
-
-  const hash = await bcrypt.hash(password, 10);
-  try {
-    const user = await User.create({ username, passwordHash: hash, role: role || "user" });
-    res.json({ success: true, user: { username: user.username, role: user.role } });
-  } catch (err) {
-    res.status(400).json({ success: false, error: err.message });
-  }
-});
-
-// Đăng nhập
-app.post("/api/auth/login", async (req, res) => {
-  const { username, password } = req.body;
-  const user = await User.findOne({ username });
-  if (!user) return res.status(401).json({ error: "Sai tài khoản hoặc mật khẩu" });
-
-  const ok = await bcrypt.compare(password, user.passwordHash);
-  if (!ok) return res.status(401).json({ error: "Sai tài khoản hoặc mật khẩu" });
-
-  const token = signToken(user);
-  res.json({ token, role: user.role });
-});
-
-// =====================================
-// 6. AUTO MODE ENGINE (THEO NGƯỠNG RIÊNG + DANH SÁCH RULE)
-// =====================================
+/* ===============================
+   6. AUTO MODE ENGINE
+   =============================== */
 
 // Helper kiểm tra thời gian trong khoảng activeFrom - activeTo
 function isTimeInRange(from, to) {
-  if (!from || !to) return true; // nếu không cấu hình thì luôn true
+  if (!from || !to) return true;
 
   const now = new Date();
   const cur = now.getHours() * 60 + now.getMinutes();
@@ -260,7 +225,6 @@ function isTimeInRange(from, to) {
   return cur >= start && cur <= end;
 }
 
-// Hàm chuẩn hóa giờ HH:mm
 function fixTime(t) {
   if (!t) return "";
   const [h, m] = t.split(":");
@@ -268,13 +232,11 @@ function fixTime(t) {
   return `${h.padStart(2, "0")}:${m.padStart(2, "0")}`;
 }
 
-// autoEngine mới: chạy theo danh sách rule trong autoDevices
 async function autoEngine() {
   try {
     const config = await AutoConfig.findOne().sort({ createdAt: -1 });
     if (!config || !config.autoMode) return;
 
-    // Kiểm tra thời gian hoạt động
     if (!isTimeInRange(config.activeFrom, config.activeTo)) return;
 
     const sensor = await CamBien.findOne().sort({ createdAt: -1 });
@@ -289,7 +251,6 @@ async function autoEngine() {
       let min = null;
       let max = null;
 
-      // Chọn cảm biến
       if (rule.sensor === "temp") {
         value = sensor.nhietdo;
         min = config.tempMin;
@@ -308,15 +269,8 @@ async function autoEngine() {
 
       let trigger = false;
 
-      // mode = "above" -> kích khi >= max
-      if (rule.mode === "above" && max != null && value >= max) {
-        trigger = true;
-      }
-
-      // mode = "below" -> kích khi <= min
-      if (rule.mode === "below" && min != null && value <= min) {
-        trigger = true;
-      }
+      if (rule.mode === "above" && max != null && value >= max) trigger = true;
+      if (rule.mode === "below" && min != null && value <= min) trigger = true;
 
       if (!trigger) continue;
 
@@ -344,9 +298,10 @@ async function autoEngine() {
 
 setInterval(autoEngine, 5000);
 
-// =====================================
-// 7. SCENARIO ENGINE (NÂNG CAO)
-// =====================================
+/* ===============================
+   7. SCENARIO ENGINE
+   =============================== */
+
 async function scenarioEngine() {
   try {
     const sensor = await CamBien.findOne().sort({ createdAt: -1 });
@@ -389,9 +344,10 @@ async function scenarioEngine() {
 
 setInterval(scenarioEngine, 7000);
 
-// =====================================
-// 8. SCHEDULE ENGINE (GIỮ LOGIC)
-// =====================================
+/* ===============================
+   8. SCHEDULE ENGINE
+   =============================== */
+
 cron.schedule("* * * * *", async () => {
   try {
     const now = new Date();
@@ -403,7 +359,6 @@ cron.schedule("* * * * *", async () => {
     for (const sch of schedules) {
       let { device, action } = sch;
 
-      // Nếu device là curtain và action là ON/OFF -> map sang OPEN/CLOSE
       if (device === "curtain") {
         if (action === "ON") action = "OPEN";
         if (action === "OFF") action = "CLOSE";
@@ -420,10 +375,10 @@ cron.schedule("* * * * *", async () => {
     console.error("SCHEDULE ERROR:", err.message);
   }
 });
+/* ===============================
+   9. API CẢM BIẾN
+   =============================== */
 
-// =====================================
-// 9. API CẢM BIẾN
-// =====================================
 app.get("/api/cambien/latest", async (req, res) => {
   const doc = await CamBien.findOne().sort({ createdAt: -1 });
   res.json(doc || {});
@@ -433,7 +388,8 @@ app.get("/api/cambien/recent", async (req, res) => {
   const docs = await CamBien.find().sort({ createdAt: -1 }).limit(10);
   res.json(docs);
 });
-// API thống kê theo ngày / tháng / năm
+
+// API thống kê theo ngày / tháng / năm (cho BIỂU ĐỒ)
 app.get("/api/cambien/stats", async (req, res) => {
   const { from, to, mode } = req.query;
 
@@ -488,17 +444,40 @@ app.get("/api/cambien/stats", async (req, res) => {
   res.json(data);
 });
 
-// =====================================
-// 10. API TRẠNG THÁI
-// =====================================
+/* API MỚI — LẤY DỮ LIỆU THEO NGÀY (cho BÁO CÁO THỐNG KÊ) */
+app.get("/api/cambien/by-date", async (req, res) => {
+  try {
+    const { date } = req.query; // yyyy-mm-dd
+
+    if (!date) return res.json([]);
+
+    const start = new Date(date);
+    const end = new Date(date);
+    end.setHours(23, 59, 59, 999);
+
+    const docs = await CamBien.find({
+      createdAt: { $gte: start, $lte: end }
+    }).sort({ createdAt: 1 });
+
+    res.json(docs);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* ===============================
+   10. API TRẠNG THÁI
+   =============================== */
+
 app.get("/api/trangthai/latest", async (req, res) => {
   const doc = await TrangThai.findOne();
   res.json(doc || {});
 });
 
-// =====================================
-// 11. API AUTO CONFIG (THEO NGƯỠNG RIÊNG + DANH SÁCH RULE)
-// =====================================
+/* ===============================
+   11. API AUTO CONFIG
+   =============================== */
+
 app.get("/api/auto-config", async (req, res) => {
   const doc = await AutoConfig.findOne().sort({ createdAt: -1 });
   res.json(doc || {});
@@ -512,10 +491,9 @@ app.post("/api/auto-config", authMiddleware("admin"), async (req, res) => {
       humidityMin, humidityMax,
       activeFrom, activeTo,
       autoMode,
-      autoDevices   // MẢNG RULE TỪ FRONTEND GỬI LÊN
+      autoDevices
     } = req.body;
 
-    // ÍT NHẤT phải có 1 ngưỡng
     const hasAnyThreshold =
       tempMin !== "" || tempMax !== "" ||
       lightMin !== "" || lightMax !== "" ||
@@ -528,7 +506,6 @@ app.post("/api/auto-config", authMiddleware("admin"), async (req, res) => {
       });
     }
 
-    // Nếu bật AutoMode thì phải có thời gian
     if (autoMode && (!activeFrom || !activeTo)) {
       return res.status(400).json({
         success: false,
@@ -536,7 +513,6 @@ app.post("/api/auto-config", authMiddleware("admin"), async (req, res) => {
       });
     }
 
-    // Chuẩn hóa mảng rule
     const normalizedRules = Array.isArray(autoDevices) ? autoDevices.map(r => ({
       device: r.device,
       sensor: r.sensor,
@@ -574,9 +550,10 @@ app.post("/api/auto-config", authMiddleware("admin"), async (req, res) => {
   }
 });
 
-// =====================================
-// 12. API SCHEDULE
-// =====================================
+/* ===============================
+   12. API SCHEDULE
+   =============================== */
+
 app.get("/api/schedule", authMiddleware("admin"), async (req, res) => {
   const docs = await Schedule.find().sort({ time: 1 });
   res.json(docs);
@@ -596,9 +573,10 @@ app.delete("/api/schedule/:id", authMiddleware("admin"), async (req, res) => {
   res.json({ success: true });
 });
 
-// =====================================
-// 13. API SCENARIO
-// =====================================
+/* ===============================
+   13. API SCENARIO
+   =============================== */
+
 app.get("/api/scenario", authMiddleware("admin"), async (req, res) => {
   const docs = await Scenario.find().sort({ createdAt: -1 });
   res.json(docs);
@@ -617,10 +595,10 @@ app.delete("/api/scenario/:id", authMiddleware("admin"), async (req, res) => {
   await Scenario.findByIdAndDelete(req.params.id);
   res.json({ success: true });
 });
+/* ===============================
+   14. API ĐIỀU KHIỂN THIẾT BỊ
+   =============================== */
 
-// =====================================
-// 14. API ĐIỀU KHIỂN THIẾT BỊ
-// =====================================
 app.post("/api/cmd", authMiddleware(), (req, res) => {
   const { topic, cmd } = req.body;
   if (!topic || typeof cmd === "undefined") {
@@ -631,22 +609,25 @@ app.post("/api/cmd", authMiddleware(), (req, res) => {
   res.json({ success: true });
 });
 
-// =====================================
-// 15. API LOG AUTO MODE
-// =====================================
+/* ===============================
+   15. API LOG AUTO MODE
+   =============================== */
+
 app.get("/api/auto-log/latest", authMiddleware("admin"), async (req, res) => {
   const logs = await AutoLog.find().sort({ timestamp: -1 }).limit(50);
   res.json(logs);
 });
 
-// =====================================
-// 16. STATIC FILES
-// =====================================
+/* ===============================
+   16. STATIC FILES
+   =============================== */
+
 app.use(express.static(path.join(__dirname, "public")));
 
-// =====================================
-// 17. START SERVER
-// =====================================
+/* ===============================
+   17. START SERVER
+   =============================== */
+
 app.listen(PORT, () => {
   console.log(` Server running on port ${PORT}`);
 });
