@@ -226,13 +226,45 @@
       </table>
     </section>
 
-    <!-- BÁO CÁO THỐNG KÊ -->
-    <section class="card">
-      <h2>Báo cáo thống kê</h2>
+    <!-- BIỂU ĐỒ THỐNG KÊ -->
+<section class="card">
+  <h2>Biểu đồ</h2>
 
-      <canvas id="chartTemp" height="120"></canvas>
-      <canvas id="chartHum" height="120" style="margin-top:20px"></canvas>
-      <canvas id="chartLux" height="120" style="margin-top:20px"></canvas>
+  <div style="display:flex; gap:10px; margin-bottom:15px;">
+    <select id="chart-mode">
+      <option value="day">Theo ngày</option>
+      <option value="month">Theo tháng</option>
+      <option value="year">Theo năm</option>
+    </select>
+
+    <input id="from-date" type="date">
+    <input id="to-date" type="date">
+
+    <button class="ctrl-btn" onclick="loadChartData()">Xem</button>
+  </div>
+
+  <canvas id="chartTemp" height="120"></canvas>
+  <canvas id="chartHum" height="120" style="margin-top:20px"></canvas>
+  <canvas id="chartLux" height="120" style="margin-top:20px"></canvas>
+</section>
+
+<!-- LỊCH SỬ 10 BẢN GHI GẦN NHẤT -->
+<section class="card">
+  <h2>Lịch sử 10 bản ghi gần nhất</h2>
+
+  <table id="historyTable">
+    <thead>
+      <tr>
+        <th>Thời gian</th>
+        <th>Nhiệt độ</th>
+        <th>Độ ẩm</th>
+        <th>Ánh sáng</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+</section>
+
 
       <h3 style="margin-top:30px">Lịch sử 10 bản ghi gần nhất</h3>
       <table id="historyTable">
