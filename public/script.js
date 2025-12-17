@@ -71,14 +71,20 @@ async function loadStatus() {
   document.getElementById("st-led3").innerText = st.led3 ? "ON" : "OFF";
   document.getElementById("st-led4").innerText = st.led4 ? "ON" : "OFF";
   document.getElementById("st-fan").innerText = st.fan ? "ON" : "OFF";
-
-  document.getElementById("st-curtain").innerText =
+  let modeText =
     st.curtainMode === 1 ? "Đóng" :
     st.curtainMode === 2 ? "Mở" : "Dừng";
+  if (st.curtainMode === 0) {
+    document.getElementById("st-curtain").innerText = modeText;
+  } else {
+    document.getElementById("st-curtain").innerText =
+      `${modeText} — ${st.curtainPercent ?? "--"} %`;
+  }
 
   document.getElementById("auto-mode-label").innerText = st.autoMode ? "ON" : "OFF";
   document.getElementById("st-last").innerText = st.lastAction ?? "--";
 }
+
 
 /* ===============================
    SEND COMMAND
