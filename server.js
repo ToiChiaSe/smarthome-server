@@ -167,9 +167,14 @@ mqttClient.on("message", async (topic, payload) => {
     }
 
     if (topic === "truong/home/status") {
-      await TrangThai.findOneAndUpdate({}, { $set: data }, { upsert: true });
-      console.log("Updated status:", data);
-    }
+  await TrangThai.findOneAndUpdate(
+    {},
+    { $set: data }, 
+    { upsert: true }
+  );
+  console.log("Updated status:", data);
+}
+
 
   } catch (err) {
     console.error("MQTT message error:", err.message);
