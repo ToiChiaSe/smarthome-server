@@ -167,7 +167,7 @@ mqttClient.on("message", async (topic, payload) => {
     }
 
     if (topic === "truong/home/status") {
-      await TrangThai.findOneAndUpdate({}, data, { upsert: true });
+      await TrangThai.findOneAndUpdate({}, { $set: data }, { upsert: true });
       console.log("Updated status:", data);
     }
 
