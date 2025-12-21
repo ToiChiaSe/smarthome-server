@@ -19,8 +19,19 @@ const io = new Server(server);
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(express.static("public"));
-app.use(session({ secret: "secret-key", resave: false, saveUninitialized: true }));
-
+const MongoStore = require("connect-mongo");
+app.use(session({
+  secret: "secret-key",
+  resave: false,
+  saveUninitialized: false,
+  store: MongoStore.create({
+    mongoUrl: process.env.MONGO_URI || "mongodb://127.0.0.1:27017/smarthome",
+    collectionName: "sessions"
+  }),
+  cookie: {
+    maxAge: 1000 * 60 * 60 * 24 // 1 ngày
+  }
+}));
 // MongoDB connect
 const MONGO_URI = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/smarthome";
 mongoose.connect(MONGO_URI)
