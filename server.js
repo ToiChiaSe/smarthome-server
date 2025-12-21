@@ -22,13 +22,10 @@ app.use(express.static("public"));
 app.use(session({ secret: "secret-key", resave: false, saveUninitialized: true }));
 
 // MongoDB connect
-const mongoose = require("mongoose");
 const MONGO_URI = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/smarthome";
 mongoose.connect(MONGO_URI)
   .then(() => console.log("MongoDB connected"))
   .catch(err => console.error("MongoDB connection error:", err));
-
-
 // MQTT connect
 const client = mqtt.connect("mqtt://localhost:1883");
 client.on("connect", () => {
