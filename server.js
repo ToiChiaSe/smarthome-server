@@ -45,9 +45,9 @@ mongoose.connect(MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
       await new Threshold({
         enabled: false,
         device: "fan",
-        date: null,           // yyyy-mm-dd hoặc null
-        timeStart: null,      // HH:mm hoặc null
-        timeEnd: null,        // HH:mm hoặc null
+        date: null,
+        timeStart: null,
+        timeEnd: null,
         thresholds: {
           temperature: { min: 18, max: 30 },
           humidity: { min: 40, max: 80 },
@@ -68,7 +68,7 @@ mqttClient.on("connect", () => {
   mqttClient.subscribe("truong/home/status");
 });
 
-// Helper: ánh xạ thiết bị sang MQTT topic
+// Helper: ánh xạ thiết bị sang topic
 function getTopicByDevice(device) {
   switch (device) {
     case "fan": return "truong/home/cmd/fan";
@@ -106,14 +106,20 @@ mqttClient.on("message", async (topic, message) => {
         timestamp: new Date()
       }).save();
 
-      // Auto mode: kiểm tra ngưỡng theo khoảng thời gian
       const th = await Threshold.findOne();
       if (th?.enabled) {
+        // Lấy giờ theo timezone Việt Nam
         const now = new Date();
-        const currentMinutes = now.getHours() * 60 + now.getMinutes();
-        let timeOk = true;
+        const formatter = new Intl.DateTimeFormat("vi-VN", {
+          timeZone: "Asia/Ho_Chi_Minh",
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false
+        });
+        const [hh, mm] = formatter.format(now).split(":");
+        const currentMinutes = parseInt(hh) * 60 + parseInt(mm);
 
-        // Khoảng thời gian
+        let timeOk = true;
         if (th.timeStart && th.timeEnd) {
           const [sh, sm] = th.timeStart.split(":").map(Number);
           const [eh, em] = th.timeEnd.split(":").map(Number);
@@ -122,9 +128,9 @@ mqttClient.on("message", async (topic, message) => {
           timeOk = currentMinutes >= startMinutes && currentMinutes <= endMinutes;
         }
 
-        // Ngày cụ thể (tùy chọn)
         if (th.date) {
-          const today = now.toISOString().slice(0, 10);
+          const today = now.toLocaleDateString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })
+            .split("/").reverse().join("-");
           timeOk = timeOk && (today === th.date);
         }
 
@@ -274,10 +280,16 @@ app.get("/", (req, res) => {
 // ====== Schedule runner ======
 setInterval(async () => {
   const now = new Date();
-  const hh = String(now.getHours()).padStart(2, "0");
-  const mm = String(now.getMinutes()).padStart(2, "0");
+  const formatter = new Intl.DateTimeFormat("vi-VN", {
+    timeZone: "Asia/Ho_Chi_Minh",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false
+  });
+  const [hh, mm] = formatter.format(now).split(":");
   const current = `${hh}:${mm}`;
-  const today = now.toISOString().slice(0, 10);
+  const today = now.toLocaleDateString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })
+    .split("/").reverse().join("-");
 
   const items = await Schedule.find({ enabled: true }).lean();
   items
