@@ -106,65 +106,65 @@ mqttClient.on("message", async (topic, message) => {
         timestamp: new Date()
       }).save();
 
-      const th = await Threshold.findOne();
-      if (th?.enabled) {
-        // Lấy giờ theo timezone Việt Nam
-        const now = new Date();
-        const formatter = new Intl.DateTimeFormat("vi-VN", {
-          timeZone: "Asia/Ho_Chi_Minh",
-          hour: "2-digit",
-          minute: "2-digit",
-          hour12: false
-        });
-        const [hh, mm] = formatter.format(now).split(":");
-        const currentMinutes = parseInt(hh) * 60 + parseInt(mm);
+      const thresholds = await Threshold.find({ enabled: true }).lean();
+for (const th of thresholds) {
+  // Lấy giờ theo timezone Việt Nam
+  const now = new Date();
+  const formatter = new Intl.DateTimeFormat("vi-VN", {
+    timeZone: "Asia/Ho_Chi_Minh",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false
+  });
+  const [hh, mm] = formatter.format(now).split(":");
+  const currentMinutes = parseInt(hh) * 60 + parseInt(mm);
 
-        let timeOk = true;
-        if (th.timeStart && th.timeEnd) {
-          const [sh, sm] = th.timeStart.split(":").map(Number);
-          const [eh, em] = th.timeEnd.split(":").map(Number);
-          const startMinutes = sh * 60 + sm;
-          const endMinutes = eh * 60 + em;
-          timeOk = currentMinutes >= startMinutes && currentMinutes <= endMinutes;
-        }
+  let timeOk = true;
+  if (th.timeStart && th.timeEnd) {
+    const [sh, sm] = th.timeStart.split(":").map(Number);
+    const [eh, em] = th.timeEnd.split(":").map(Number);
+    const startMinutes = sh * 60 + sm;
+    const endMinutes = eh * 60 + em;
+    timeOk = currentMinutes >= startMinutes && currentMinutes <= endMinutes;
+  }
 
-        if (th.date) {
-          const today = now.toLocaleDateString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })
-            .split("/").reverse().join("-");
-          timeOk = timeOk && (today === th.date);
-        }
+  if (th.date) {
+    const today = now.toLocaleDateString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })
+      .split("/").reverse().join("-");
+    timeOk = timeOk && (today === th.date);
+  }
 
-        if (timeOk) {
-          const checks = [];
-          const pushCheck = (sensorName, value, bounds) => {
-            if (typeof value !== "number" || !bounds) return;
-            const { min, max } = bounds;
-            if (typeof max === "number" && value > max) {
-              checks.push({ sensorName, trigger: "max", value });
-            } else if (typeof min === "number" && value < min) {
-              checks.push({ sensorName, trigger: "min", value });
-            }
-          };
-          pushCheck("temperature", data.temperature, th.thresholds?.temperature);
-          pushCheck("humidity", data.humidity, th.thresholds?.humidity);
-          pushCheck("light", data.light, th.thresholds?.light);
-
-          if (checks.length > 0) {
-            const hasMax = checks.some(c => c.trigger === "max");
-            const action = hasMax ? th.actionMax : th.actionMin;
-            const topicOut = getTopicByDevice(th.device);
-            if (topicOut && action) {
-              mqttClient.publish(topicOut, action);
-              io.emit("autoAction", {
-                reason: hasMax ? "threshold_max" : "threshold_min",
-                value: checks.map(c => `${c.sensorName}:${c.value}`).join(","),
-                action
-              });
-            }
-          }
-        }
+  if (timeOk) {
+    const checks = [];
+    const pushCheck = (sensorName, value, bounds) => {
+      if (typeof value !== "number" || !bounds) return;
+      const { min, max } = bounds;
+      if (typeof max === "number" && value > max) {
+        checks.push({ sensorName, trigger: "max", value });
+      } else if (typeof min === "number" && value < min) {
+        checks.push({ sensorName, trigger: "min", value });
       }
+    };
+    pushCheck("temperature", data.temperature, th.thresholds?.temperature);
+    pushCheck("humidity", data.humidity, th.thresholds?.humidity);
+    pushCheck("light", data.light, th.thresholds?.light);
 
+    if (checks.length > 0) {
+      const hasMax = checks.some(c => c.trigger === "max");
+      const action = hasMax ? th.actionMax : th.actionMin;
+      const topicOut = getTopicByDevice(th.device);
+      if (topicOut && action) {
+        mqttClient.publish(topicOut, action);
+        io.emit("autoAction", {
+          device: th.device,
+          reason: hasMax ? "threshold_max" : "threshold_min",
+          value: checks.map(c => `${c.sensorName}:${c.value}`).join(","),
+          action
+        });
+      }
+    }
+  }
+}
     } else if (topic === "truong/home/status") {
       io.emit("deviceStatus", data);
       await new DeviceStatus({
