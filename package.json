@@ -1,9 +1,12 @@
 {
   "name": "smarthome-server",
   "version": "1.0.0",
+  "description": "SmartHome server with MongoDB, MQTT, Dashboard, OTA, Charts",
   "type": "module",
+  "main": "app.js",
   "scripts": {
-    "start": "node app.js"
+    "start": "node app.js",
+    "dev": "nodemon app.js"
   },
   "dependencies": {
     "bcrypt": "^5.1.1",
@@ -14,5 +17,8 @@
     "method-override": "^3.0.0",
     "mongoose": "^7.6.3",
     "mqtt": "^5.3.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
   }
 }
