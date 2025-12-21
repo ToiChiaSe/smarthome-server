@@ -45,8 +45,9 @@ mongoose.connect(MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
       await new Threshold({
         enabled: false,
         device: "fan",
-        date: null,
-        time: null,
+        date: null,           // yyyy-mm-dd hoặc null
+        timeStart: null,      // HH:mm hoặc null
+        timeEnd: null,        // HH:mm hoặc null
         thresholds: {
           temperature: { min: 18, max: 30 },
           humidity: { min: 40, max: 80 },
@@ -67,7 +68,7 @@ mqttClient.on("connect", () => {
   mqttClient.subscribe("truong/home/status");
 });
 
-// Helper: ánh xạ thiết bị sang topic
+// Helper: ánh xạ thiết bị sang MQTT topic
 function getTopicByDevice(device) {
   switch (device) {
     case "fan": return "truong/home/cmd/fan";
@@ -105,16 +106,27 @@ mqttClient.on("message", async (topic, message) => {
         timestamp: new Date()
       }).save();
 
+      // Auto mode: kiểm tra ngưỡng theo khoảng thời gian
       const th = await Threshold.findOne();
       if (th?.enabled) {
-        // kiểm tra thời gian nếu có
         const now = new Date();
-        const hh = String(now.getHours()).padStart(2, "0");
-        const mm = String(now.getMinutes()).padStart(2, "0");
-        const today = now.toISOString().slice(0, 10);
+        const currentMinutes = now.getHours() * 60 + now.getMinutes();
         let timeOk = true;
-        if (th.time) timeOk = (`${hh}:${mm}` === th.time);
-        if (th.date) timeOk = timeOk && (today === th.date);
+
+        // Khoảng thời gian
+        if (th.timeStart && th.timeEnd) {
+          const [sh, sm] = th.timeStart.split(":").map(Number);
+          const [eh, em] = th.timeEnd.split(":").map(Number);
+          const startMinutes = sh * 60 + sm;
+          const endMinutes = eh * 60 + em;
+          timeOk = currentMinutes >= startMinutes && currentMinutes <= endMinutes;
+        }
+
+        // Ngày cụ thể (tùy chọn)
+        if (th.date) {
+          const today = now.toISOString().slice(0, 10);
+          timeOk = timeOk && (today === th.date);
+        }
 
         if (timeOk) {
           const checks = [];
@@ -207,7 +219,7 @@ app.get("/api/thresholds", requireAuth, async (req, res) => {
   res.json(th || {});
 });
 app.post("/api/thresholds", requireAdmin, async (req, res) => {
-  const payload = req.body;
+  const payload = req.body; // { enabled, device, date, timeStart, timeEnd, thresholds, actionMax, actionMin }
   let th = await Threshold.findOne();
   if (!th) th = new Threshold(payload);
   else Object.assign(th, payload);
