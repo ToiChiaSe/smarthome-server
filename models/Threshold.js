@@ -2,15 +2,16 @@ const mongoose = require("mongoose");
 
 const ThresholdSchema = new mongoose.Schema({
   enabled: Boolean,
-  device: String,   // fan, led1..led4, curtain
-  date: String,     // yyyy-mm-dd hoặc null
-  time: String,     // HH:mm hoặc null
+  device: String,
+  date: String,   // yyyy-mm-dd hoặc null
+  timeStart: String, // HH:mm
+  timeEnd: String,   // HH:mm
   thresholds: {
     temperature: { min: Number, max: Number },
     humidity:    { min: Number, max: Number },
     light:       { min: Number, max: Number }
   },
-  actionMax: String, // ON/OFF hoặc OPEN/CLOSE/STOP
+  actionMax: String,
   actionMin: String
 });
 
