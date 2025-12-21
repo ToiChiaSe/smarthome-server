@@ -2,7 +2,7 @@ const mongoose = require("mongoose");
 
 const ThresholdSchema = new mongoose.Schema({
   enabled: Boolean,
-  device: String,        // tên thiết bị: fan, led1, led2, curtain...
+  device: String,        // fan, led1, led2, curtain...
   date: String,          // yyyy-mm-dd hoặc null
   timeStart: String,     // HH:mm
   timeEnd: String,       // HH:mm
