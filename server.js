@@ -60,11 +60,39 @@ client.on("connect", () => {
   console.log("MQTT connected");
   client.subscribe("truong/home/cambien");
 });
+
 client.on("message", async (topic, message) => {
-  const data = JSON.parse(message.toString());
-  const sensor = new Sensor(data);
-  await sensor.save();
-  io.emit("sensors", await Sensor.find().sort({ timestamp: -1 }).limit(60).lean());
+  try {
+    // In ra raw message
+    console.log("MQTT message received:", topic, message.toString());
+
+    // Parse JSON
+    const data = JSON.parse(message.toString());
+    console.log("Parsed sensor data:", data);
+
+    // In riêng từng thông số nếu có
+    if (data.temperature !== undefined) {
+      console.log("Temperature:", data.temperature, "°C");
+    }
+    if (data.humidity !== undefined) {
+      console.log("Humidity:", data.humidity, "%");
+    }
+    if (data.light !== undefined) {
+      console.log("Light:", data.light, "lux");
+    }
+
+    // Lưu vào DB
+    const sensor = new Sensor(data);
+    await sensor.save();
+
+    // Emit cho client
+    const latestSensors = await Sensor.find().sort({ timestamp: -1 }).limit(60).lean();
+    io.emit("sensors", latestSensors);
+
+    console.log("Sensors emitted to clients, count:", latestSensors.length);
+  } catch (err) {
+    console.error("Error processing MQTT message:", err.message);
+  }
 });
 
 // Login routes
