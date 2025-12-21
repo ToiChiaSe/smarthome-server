@@ -1,8 +1,11 @@
 const mongoose = require("mongoose");
-const sensorSchema = new mongoose.Schema({
-  sensorType: String,
-  value: Number,
-  timestamp: { type: Date, default: Date.now }
-});
-module.exports = mongoose.model("Sensor", sensorSchema);
 
+const SensorSchema = new mongoose.Schema({
+  deviceId: { type: String },
+  temperature: { type: Number },
+  humidity: { type: Number },
+  light: { type: Number },
+  timestamp: { type: Date, default: Date.now }
+}, { versionKey: false });
+
+module.exports = mongoose.model("Sensor", SensorSchema);
