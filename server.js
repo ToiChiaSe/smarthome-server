@@ -54,35 +54,26 @@ mongoose.connect(MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
   })
   .catch(err => console.error("MongoDB connection error:", err));
 
-// MQTT connect
-const client = mqtt.connect("mqtt://localhost:1883");
+// MQTT connect tới broker public
+const client = mqtt.connect("mqtt://test.mosquitto.org:1883");
 client.on("connect", () => {
-  console.log("MQTT connected");
+  console.log("MQTT connected to test.mosquitto.org");
   client.subscribe("truong/home/cambien");
 });
 
 client.on("message", async (topic, message) => {
   try {
-    // In ra raw message
     console.log("MQTT message received:", topic, message.toString());
-
-    // Parse JSON
     const data = JSON.parse(message.toString());
     console.log("Parsed sensor data:", data);
 
-    // In riêng từng thông số nếu có
-    if (data.temperature !== undefined) {
-      console.log("Temperature:", data.temperature, "°C");
-    }
-    if (data.humidity !== undefined) {
-      console.log("Humidity:", data.humidity, "%");
-    }
-    if (data.light !== undefined) {
-      console.log("Light:", data.light, "lux");
-    }
-
     // Lưu vào DB
-    const sensor = new Sensor(data);
+    const sensor = new Sensor({
+      temperature: data.temperature,
+      humidity: data.humidity,
+      light: data.light,
+      timestamp: new Date()
+    });
     await sensor.save();
 
     // Emit cho client
@@ -106,7 +97,7 @@ app.post("/login", async (req, res) => {
     return res.send("Sai tài khoản hoặc mật khẩu");
   }
 
-  const match = await user.comparePassword(password); // dùng method trong model
+  const match = await user.comparePassword(password);
   if (match) {
     req.session.user = { id: user._id, role: user.role };
     res.redirect("/dashboard.html");
@@ -133,7 +124,7 @@ app.post("/api/users", async (req, res) => {
   try {
     const { username, password, role } = req.body;
     const user = new User({ username, password, role });
-    await user.save(); // hook trong model sẽ tự hash password
+    await user.save();
     io.emit("users", await User.find().lean());
     res.redirect("/dashboard.html");
   } catch (err) {
