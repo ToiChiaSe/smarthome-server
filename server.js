@@ -69,6 +69,7 @@ mqttClient.on("connect", () => {
   mqttClient.subscribe("truong/home/status");
 });
 
+// Helper: ánh xạ thiết bị sang topic
 function getTopicByDevice(device) {
   switch (device) {
     case "fan": return "truong/home/cmd/fan";
@@ -79,6 +80,18 @@ function getTopicByDevice(device) {
     case "curtain": return "truong/home/cmd/curtain";
     default: return null;
   }
+}
+
+// Middleware kiểm tra đăng nhập & quyền admin
+function requireAuth(req, res, next) {
+  if (!req.session.user) return res.status(401).json({ error: "Unauthorized" });
+  next();
+}
+function requireAdmin(req, res, next) {
+  if (!req.session.user || req.session.user.role !== "admin") {
+    return res.status(403).json({ error: "Forbidden" });
+  }
+  next();
 }
 
 mqttClient.on("message", async (topic, message) => {
@@ -189,6 +202,25 @@ io.on("connection", async (socket) => {
   socket.emit("users", users);
 });
 
+app.get("/login", (req, res) => res.sendFile(__dirname + "/public/login.html"));
+app.post("/login", async (req, res) => {
+  const { username, password } = req.body;
+  const u = await User.findOne({ username });
+  if (!u) return res.status(400).send("Sai tài khoản hoặc mật khẩu");
+  const ok = await u.comparePassword(password);
+  if (!ok) return res.status(400).send("Sai tài khoản hoặc mật khẩu");
+  req.session.user = { id: u._id, role: u.role, username: u.username };
+  res.redirect("/dashboard.html");
+});
+app.post("/logout", (req, res) => req.session.destroy(() => res.redirect("/login")));
+
+app.post("/api/cmd", requireAuth, (req, res) => {
+  const { topic, cmd } = req.body;
+  mqttClient.publish(topic, cmd);
+  res.json({ ok: true });
+});
+
+// Thresholds API
 app.get("/api/thresholds", requireAuth, async (req, res) => {
   const ths = await Threshold.find().lean();
   res.json(ths);
@@ -200,6 +232,51 @@ app.post("/api/thresholds", requireAdmin, async (req, res) => {
   await th.save();
   io.emit("thresholds", await Threshold.find().lean());
   res.json({ ok: true });
+});
+
+// Schedules API
+app.get("/api/schedules", requireAuth, async (req, res) => {
+  const items = await Schedule.find().lean();
+  res.json(items);
+});
+
+app.post("/api/schedules", requireAdmin, async (req, res) => {
+  const { name, date, time, device, cmd, enabled } = req.body;
+  const topic = getTopicByDevice(device);
+  if (!topic) return res.status(400).json({ error: "Invalid device" });
+
+  const sc = new Schedule({
+    name,
+    date: date || null,
+    time,
+    device,
+    topic,
+    cmd,
+    enabled: !!enabled
+  });
+  await sc.save();
+  io.emit("schedules", await Schedule.find().lean());
+  res.json({ ok: true });
+});
+
+app.post("/api/schedules/:id/toggle", requireAdmin, async (req, res) => {
+  const sc = await Schedule.findById(req.params.id);
+  if (!sc) return res.status(404).json({ error: "Not found" });
+  sc.enabled = !sc.enabled;
+  await sc.save();
+  io.emit("schedules", await Schedule.find().lean());
+  res.json({ ok: true });
+});
+
+app.delete("/api/schedules/:id", requireAdmin, async (req, res) => {
+  await Schedule.findByIdAndDelete(req.params.id);
+  io.emit("schedules", await Schedule.find().lean());
+  res.json({ ok: true });
+});
+
+app.get("/", (req, res) => {
+  if (req.session.user) res.redirect("/dashboard.html");
+  else res.redirect("/login");
 });
 // ====== Schedule runner ======
 setInterval(async () => {
