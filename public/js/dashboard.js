@@ -125,26 +125,43 @@ socket.on("sensors", (data) => {
   }
   sensorChart.update();
 });
-// ====== Thresholds form ======
+// ====== Auto mode (ngưỡng) ======
+function updateActionOptions() {
+  const device = document.getElementById("th-device").value;
+  const maxSel = document.getElementById("th-action-max");
+  const minSel = document.getElementById("th-action-min");
+
+  maxSel.innerHTML = "";
+  minSel.innerHTML = "";
+
+  if (device === "curtain") {
+    ["OPEN","CLOSE","STOP"].forEach(opt => {
+      maxSel.innerHTML += `<option value="${opt}">${opt}</option>`;
+      minSel.innerHTML += `<option value="${opt}">${opt}</option>`;
+    });
+  } else {
+    ["ON","OFF"].forEach(opt => {
+      maxSel.innerHTML += `<option value="${opt}">${opt}</option>`;
+      minSel.innerHTML += `<option value="${opt}">${opt}</option>`;
+    });
+  }
+}
+updateActionOptions();
+
 socket.on("thresholds", (th) => {
   document.getElementById("th-enabled").checked = !!th.enabled;
   document.getElementById("th-device").value = th.device ?? "fan";
   document.getElementById("th-date").value = th.date ?? "";
   document.getElementById("th-time").value = th.time ?? "";
 
-  // ngưỡng nhiệt độ
   document.getElementById("th-tmin").value = th.thresholds?.temperature?.min ?? "";
   document.getElementById("th-tmax").value = th.thresholds?.temperature?.max ?? "";
-
-  // ngưỡng độ ẩm
   document.getElementById("th-hmin").value = th.thresholds?.humidity?.min ?? "";
   document.getElementById("th-hmax").value = th.thresholds?.humidity?.max ?? "";
-
-  // ngưỡng ánh sáng
   document.getElementById("th-lmin").value = th.thresholds?.light?.min ?? "";
   document.getElementById("th-lmax").value = th.thresholds?.light?.max ?? "";
 
-  // action
+  updateActionOptions();
   document.getElementById("th-action-max").value = th.actionMax ?? "ON";
   document.getElementById("th-action-min").value = th.actionMin ?? "OFF";
 });
@@ -182,7 +199,8 @@ document.getElementById("thresholdForm").addEventListener("submit", async (e) =>
   const r = await res.json();
   if (r.ok) alert("Đã lưu auto mode");
 });
-// ====== Schedules ======
+
+// ====== Lịch hẹn ======
 function renderSchedules(items) {
   const container = document.getElementById("scheduleList");
   container.innerHTML = "";
