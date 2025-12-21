@@ -41,6 +41,13 @@ const scheduleSchema = new mongoose.Schema({
 });
 const Schedule = mongoose.model("Schedule", scheduleSchema);
 
+const sensorSchema = new mongoose.Schema({
+  sensorType: String,
+  value: Number,
+  timestamp: { type: Date, default: Date.now }
+});
+const Sensor = mongoose.model("Sensor", sensorSchema);
+
 // ====== Express Setup ======
 const app = express();
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -88,7 +95,6 @@ function apiAuth(req, res, next) {
     res.status(401).send("Unauthorized");
   }
 }
-
 // ====== Routes ======
 
 // Login
@@ -183,49 +189,6 @@ app.post("/api/devices/:id/command", apiAuth, async (req, res) => {
   mqttClient.publish(`truong/home/${id}/command`, cmd);
   res.redirect("/");
 });
-
-// Thresholds
-app.get("/thresholds", requireAuth, async (req, res) => {
-  const thresholds = await Threshold.find().lean();
-  const body = `
-    <div class="container">
-      <div class="card">
-        <h2>Thresholds</h2>
-        <ul>
-          ${thresholds.map(t=>`
-            <li>
-              ${t.sensorType} ${t.comparator} ${t.value} → ${t.actions.join(",")}
-              <form method="post" action="/api/thresholds/${t._id}/delete" style="display:inline;">
-                <button class="btn-gray">Xóa</button>
-              </form>
-            </li>`).join("")}
-        </ul>
-        <h3>Thêm Threshold</h3>
-        <form method="post" action="/api/thresholds">
-          <input name="sensorType" placeholder="Sensor type" required />
-          <select name="comparator">
-            <option value=">">&gt;</option>
-            <option value="<">&lt;</option>
-          </select>
-          <input name="value" type="number" placeholder="Giá trị" required />
-          <input name="actions" placeholder="Hành động, cách nhau bằng dấu phẩy" required />
-          <button class="btn-green">Thêm</button>
-        </form>
-      </div>
-    </div>`;
-  res.send(layout("Thresholds", req.user, body));
-});
-
-app.post("/api/thresholds", apiAuth, async (req, res) => {
-  const { sensorType, comparator, value, actions } = req.body;
-  await Threshold.create({ sensorType, comparator, value, actions: actions.split(",") });
-  res.redirect("/thresholds");
-});
-
-app.post("/api/thresholds/:id/delete", apiAuth, async (req, res) => {
-  await Threshold.findByIdAndDelete(req.params.id);
-  res.redirect("/thresholds");
-});
 // ====== Schedules ======
 app.get("/schedules", requireAuth, async (req, res) => {
   const schedules = await Schedule.find().lean();
@@ -254,18 +217,37 @@ app.get("/schedules", requireAuth, async (req, res) => {
   res.send(layout("Schedules", req.user, body));
 });
 
-// API thêm Schedule
 app.post("/api/schedules", apiAuth, async (req, res) => {
   const { deviceId, cron, action } = req.body;
   await Schedule.create({ deviceId, cron, action });
   res.redirect("/schedules");
 });
 
-// API xóa Schedule
 app.post("/api/schedules/:id/delete", apiAuth, async (req, res) => {
   await Schedule.findByIdAndDelete(req.params.id);
   res.redirect("/schedules");
 });
+
+// ====== MQTT Handler ======
+const mqttClient = mqtt.connect(MQTT_URL);
+mqttClient.on("connect", () => {
+  console.log("MQTT connected:", MQTT_URL);
+});
+
+// Lắng nghe dữ liệu từ ESP32
+mqttClient.on("message", async (topic, message) => {
+  console.log("MQTT message:", topic, message.toString());
+
+  if (topic.startsWith("truong/home/status/")) {
+    const sensorType = topic.split("/").pop();
+    const value = parseFloat(message.toString());
+
+    // Lưu dữ liệu cảm biến
+    await Sensor.create({ sensorType, value });
+    console.log(`Saved sensor: ${sensorType} = ${value}`);
+  }
+});
+
 // ====== MongoDB Connect ======
 mongoose.connect(DB_URI, { dbName: "smarthome" })
   .then(() => console.log("MongoDB connected"))
@@ -280,12 +262,6 @@ mongoose.connect(DB_URI, { dbName: "smarthome" })
     console.log("Seeded admin user");
   }
 })();
-
-// ====== MQTT Connect ======
-const mqttClient = mqtt.connect(MQTT_URL);
-mqttClient.on("connect", () => {
-  console.log("MQTT connected:", MQTT_URL);
-});
 
 // ====== Start Server ======
 app.listen(PORT, () => {
