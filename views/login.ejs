@@ -1,1 +1,19 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Đăng nhập SmartHome</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body class="login-page">
+  <div class="login-box">
+    <h2>SmartHome Login</h2>
+    <form method="post" action="/api/auth/login">
+      <input type="text" name="username" placeholder="Tên đăng nhập" required>
+      <input type="password" name="password" placeholder="Mật khẩu" required>
+      <button type="submit" class="btn-green">Đăng nhập</button>
+    </form>
+  </div>
+</body>
+</html>
 
