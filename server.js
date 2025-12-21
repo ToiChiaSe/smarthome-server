@@ -35,8 +35,25 @@ app.use(session({
 
 // MongoDB connect
 const MONGO_URI = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/smarthome";
-mongoose.connect(MONGO_URI)
-  .then(() => console.log("MongoDB connected"))
+mongoose.connect(MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
+  .then(async () => {
+    console.log("MongoDB connected");
+
+    // Tạo tài khoản mặc định nếu chưa có
+    const adminUser = await User.findOne({ username: "admin" });
+    if (!adminUser) {
+      const hashedPassword = await bcrypt.hash("123456", 10);
+      const newAdmin = new User({
+        username: "admin",
+        password: hashedPassword,
+        role: "admin"
+      });
+      await newAdmin.save();
+      console.log("Default admin account created (username: admin, password: 123456)");
+    } else {
+      console.log("Admin account already exists");
+    }
+  })
   .catch(err => console.error("MongoDB connection error:", err));
 
 // MQTT connect
@@ -85,7 +102,7 @@ app.post("/api/users", async (req, res) => {
   try {
     const { username, password, role } = req.body;
     const user = new User({ username, password, role });
-    await user.save();
+    await user.save(); // hook trong model sẽ tự hash password
     io.emit("users", await User.find().lean());
     res.redirect("/dashboard.html");
   } catch (err) {
@@ -112,12 +129,17 @@ io.on("connection", async (socket) => {
   socket.emit("users", await User.find().lean());
 });
 
+// Route gốc
+app.get("/", (req, res) => {
+  if (req.session.user) {
+    res.redirect("/dashboard.html");
+  } else {
+    res.redirect("/login");
+  }
+});
+
 // Lắng nghe PORT Render cấp
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`Server chạy tại http://localhost:${PORT}`);
 });
-app.get("/", (req, res) => {
-  res.redirect("/login");
-});
-
