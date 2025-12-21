@@ -40,27 +40,28 @@ mongoose.connect(MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
       await new User({ username: "admin", password: "123456", role: "admin" }).save();
       console.log("Seeded admin (admin/123456)");
     }
-    const existingTh = await Threshold.findOne();
-    if (!existingTh) {
-      await new Threshold({
-        enabled: false,
-        device: "fan",
-        date: null,
-        timeStart: null,
-        timeEnd: null,
-        thresholds: {
-          temperature: { min: 18, max: 30 },
-          humidity: { min: 40, max: 80 },
-          light: { min: 50, max: 800 }
-        },
-        actionMax: "OFF",
-        actionMin: "ON"
-      }).save();
+    const existingTh = await Threshold.find();
+    if (existingTh.length === 0) {
+      await Threshold.insertMany([
+        {
+          enabled: false,
+          device: "fan",
+          date: null,
+          timeStart: null,
+          timeEnd: null,
+          thresholds: {
+            temperature: { min: 18, max: 30 },
+            humidity: { min: 40, max: 80 },
+            light: { min: 50, max: 800 }
+          },
+          actionMax: "OFF",
+          actionMin: "ON"
+        }
+      ]);
       console.log("Seeded default thresholds");
     }
   })
   .catch(err => console.error("MongoDB error:", err.message));
-
 const mqttClient = mqtt.connect("mqtt://test.mosquitto.org:1883");
 mqttClient.on("connect", () => {
   console.log("MQTT connected");
@@ -68,7 +69,6 @@ mqttClient.on("connect", () => {
   mqttClient.subscribe("truong/home/status");
 });
 
-// Helper: ánh xạ thiết bị sang topic
 function getTopicByDevice(device) {
   switch (device) {
     case "fan": return "truong/home/cmd/fan";
@@ -79,17 +79,6 @@ function getTopicByDevice(device) {
     case "curtain": return "truong/home/cmd/curtain";
     default: return null;
   }
-}
-
-function requireAuth(req, res, next) {
-  if (!req.session.user) return res.status(401).json({ error: "Unauthorized" });
-  next();
-}
-function requireAdmin(req, res, next) {
-  if (!req.session.user || req.session.user.role !== "admin") {
-    return res.status(403).json({ error: "Forbidden" });
-  }
-  next();
 }
 
 mqttClient.on("message", async (topic, message) => {
@@ -107,64 +96,63 @@ mqttClient.on("message", async (topic, message) => {
       }).save();
 
       const thresholds = await Threshold.find({ enabled: true }).lean();
-for (const th of thresholds) {
-  // Lấy giờ theo timezone Việt Nam
-  const now = new Date();
-  const formatter = new Intl.DateTimeFormat("vi-VN", {
-    timeZone: "Asia/Ho_Chi_Minh",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false
-  });
-  const [hh, mm] = formatter.format(now).split(":");
-  const currentMinutes = parseInt(hh) * 60 + parseInt(mm);
-
-  let timeOk = true;
-  if (th.timeStart && th.timeEnd) {
-    const [sh, sm] = th.timeStart.split(":").map(Number);
-    const [eh, em] = th.timeEnd.split(":").map(Number);
-    const startMinutes = sh * 60 + sm;
-    const endMinutes = eh * 60 + em;
-    timeOk = currentMinutes >= startMinutes && currentMinutes <= endMinutes;
-  }
-
-  if (th.date) {
-    const today = now.toLocaleDateString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })
-      .split("/").reverse().join("-");
-    timeOk = timeOk && (today === th.date);
-  }
-
-  if (timeOk) {
-    const checks = [];
-    const pushCheck = (sensorName, value, bounds) => {
-      if (typeof value !== "number" || !bounds) return;
-      const { min, max } = bounds;
-      if (typeof max === "number" && value > max) {
-        checks.push({ sensorName, trigger: "max", value });
-      } else if (typeof min === "number" && value < min) {
-        checks.push({ sensorName, trigger: "min", value });
-      }
-    };
-    pushCheck("temperature", data.temperature, th.thresholds?.temperature);
-    pushCheck("humidity", data.humidity, th.thresholds?.humidity);
-    pushCheck("light", data.light, th.thresholds?.light);
-
-    if (checks.length > 0) {
-      const hasMax = checks.some(c => c.trigger === "max");
-      const action = hasMax ? th.actionMax : th.actionMin;
-      const topicOut = getTopicByDevice(th.device);
-      if (topicOut && action) {
-        mqttClient.publish(topicOut, action);
-        io.emit("autoAction", {
-          device: th.device,
-          reason: hasMax ? "threshold_max" : "threshold_min",
-          value: checks.map(c => `${c.sensorName}:${c.value}`).join(","),
-          action
+      for (const th of thresholds) {
+        const now = new Date();
+        const formatter = new Intl.DateTimeFormat("vi-VN", {
+          timeZone: "Asia/Ho_Chi_Minh",
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false
         });
+        const [hh, mm] = formatter.format(now).split(":");
+        const currentMinutes = parseInt(hh) * 60 + parseInt(mm);
+
+        let timeOk = true;
+        if (th.timeStart && th.timeEnd) {
+          const [sh, sm] = th.timeStart.split(":").map(Number);
+          const [eh, em] = th.timeEnd.split(":").map(Number);
+          const startMinutes = sh * 60 + sm;
+          const endMinutes = eh * 60 + em;
+          timeOk = currentMinutes >= startMinutes && currentMinutes <= endMinutes;
+        }
+
+        if (th.date) {
+          const today = now.toLocaleDateString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })
+            .split("/").reverse().join("-");
+          timeOk = timeOk && (today === th.date);
+        }
+
+        if (timeOk) {
+          const checks = [];
+          const pushCheck = (sensorName, value, bounds) => {
+            if (typeof value !== "number" || !bounds) return;
+            const { min, max } = bounds;
+            if (typeof max === "number" && value > max) {
+              checks.push({ sensorName, trigger: "max", value });
+            } else if (typeof min === "number" && value < min) {
+              checks.push({ sensorName, trigger: "min", value });
+            }
+          };
+          pushCheck("temperature", data.temperature, th.thresholds?.temperature);
+          pushCheck("humidity", data.humidity, th.thresholds?.humidity);
+          pushCheck("light", data.light, th.thresholds?.light);
+
+          if (checks.length > 0) {
+            const hasMax = checks.some(c => c.trigger === "max");
+            const action = hasMax ? th.actionMax : th.actionMin;
+            const topicOut = getTopicByDevice(th.device);
+            if (topicOut && action) {
+              mqttClient.publish(topicOut, action);
+              io.emit("autoAction", {
+                device: th.device,
+                reason: hasMax ? "threshold_max" : "threshold_min",
+                value: checks.map(c => `${c.sensorName}:${c.value}`).join(","),
+                action
+              });
+            }
+          }
+        }
       }
-    }
-  }
-}
     } else if (topic === "truong/home/status") {
       io.emit("deviceStatus", data);
       await new DeviceStatus({
@@ -182,7 +170,6 @@ for (const th of thresholds) {
     console.error("MQTT msg error:", err.message);
   }
 });
-
 io.on("connection", async (socket) => {
   console.log("Client connected");
   const history = await Sensor.find().sort({ timestamp: -1 }).limit(60).lean();
@@ -202,24 +189,6 @@ io.on("connection", async (socket) => {
   socket.emit("users", users);
 });
 
-app.get("/login", (req, res) => res.sendFile(__dirname + "/public/login.html"));
-app.post("/login", async (req, res) => {
-  const { username, password } = req.body;
-  const u = await User.findOne({ username });
-  if (!u) return res.status(400).send("Sai tài khoản hoặc mật khẩu");
-  const ok = await u.comparePassword(password);
-  if (!ok) return res.status(400).send("Sai tài khoản hoặc mật khẩu");
-  req.session.user = { id: u._id, role: u.role, username: u.username };
-  res.redirect("/dashboard.html");
-});
-app.post("/logout", (req, res) => req.session.destroy(() => res.redirect("/login")));
-
-app.post("/api/cmd", requireAuth, (req, res) => {
-  const { topic, cmd } = req.body;
-  mqttClient.publish(topic, cmd);
-  res.json({ ok: true });
-});
-
 app.get("/api/thresholds", requireAuth, async (req, res) => {
   const ths = await Threshold.find().lean();
   res.json(ths);
@@ -227,55 +196,11 @@ app.get("/api/thresholds", requireAuth, async (req, res) => {
 
 app.post("/api/thresholds", requireAdmin, async (req, res) => {
   const payload = req.body;
-  const th = new Threshold(payload); // tạo mới mỗi lần submit
+  const th = new Threshold(payload);
   await th.save();
-  io.emit("thresholds", await Threshold.find().lean()); // gửi toàn bộ danh sách
+  io.emit("thresholds", await Threshold.find().lean());
   res.json({ ok: true });
 });
-
-app.get("/api/schedules", requireAuth, async (req, res) => {
-  const items = await Schedule.find().lean();
-  res.json(items);
-});
-app.post("/api/schedules", requireAdmin, async (req, res) => {
-  const { name, date, time, device, cmd, enabled } = req.body;
-  const topic = getTopicByDevice(device);
-  if (!topic) return res.status(400).json({ error: "Invalid device" });
-
-  const sc = new Schedule({
-    name,
-    date: date || null,
-    time,
-    device,
-    topic,
-    cmd,
-    enabled: !!enabled
-  });
-  await sc.save();
-  io.emit("schedules", await Schedule.find().lean());
-  res.json({ ok: true });
-});
-
-app.post("/api/schedules/:id/toggle", requireAdmin, async (req, res) => {
-  const sc = await Schedule.findById(req.params.id);
-  if (!sc) return res.status(404).json({ error: "Not found" });
-  sc.enabled = !sc.enabled;
-  await sc.save();
-  io.emit("schedules", await Schedule.find().lean());
-  res.json({ ok: true });
-});
-
-app.delete("/api/schedules/:id", requireAdmin, async (req, res) => {
-  await Schedule.findByIdAndDelete(req.params.id);
-  io.emit("schedules", await Schedule.find().lean());
-  res.json({ ok: true });
-});
-
-app.get("/", (req, res) => {
-  if (req.session.user) res.redirect("/dashboard.html");
-  else res.redirect("/login");
-});
-
 // ====== Schedule runner ======
 setInterval(async () => {
   const now = new Date();
@@ -305,5 +230,6 @@ setInterval(async () => {
     });
 }, 10 * 1000);
 
+// ====== Start server ======
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log(`Server http://localhost:${PORT}`));
