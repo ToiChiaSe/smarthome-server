@@ -1,1 +1,28 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head><meta charset="UTF-8"><title>Users</title><link rel="stylesheet" href="/style.css"></head>
+<body>
+<nav>
+  <a href="/dashboard">Dashboard</a>
+  <a href="/thresholds">Thresholds</a>
+  <a href="/schedules">Scheduler</a>
+  <a href="/users">Users</a>
+</nav>
+<div class="container">
+  <h1>Quản lý người dùng</h1>
+  <table>
+    <thead><tr><th>Username</th><th>Role</th><th>Permissions</th></tr></thead>
+    <tbody>
+      <% users.forEach(u=>{ %>
+        <tr>
+          <td><%= u.username %></td>
+          <td><%= u.role %></td>
+          <td><%= JSON.stringify(u.permissions) %></td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+</div>
+</body>
+</html>
 
