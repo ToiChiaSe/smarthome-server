@@ -50,14 +50,18 @@
       <p>Ánh sáng trung bình: <span id="avg-lux">--</span> lux</p>
     </div>
   </div>
-
   <!-- Ngưỡng Auto Mode -->
   <div class="card shadow mb-4">
     <div class="card-header bg-danger text-white">Ngưỡng Auto Mode</div>
     <div class="card-body">
       <form method="post" action="/api/thresholds" class="row g-3">
         <div class="col-md-3"><input name="sensorType" class="form-control" placeholder="Sensor" required></div>
-        <div class="col-md-2"><select name="comparator" class="form-select"><option value=">">&gt;</option><option value="<">&lt;</option></select></div>
+        <div class="col-md-2">
+          <select name="comparator" class="form-select">
+            <option value=">">&gt;</option>
+            <option value="<">&lt;</option>
+          </select>
+        </div>
         <div class="col-md-2"><input name="value" type="number" class="form-control" placeholder="Giá trị" required></div>
         <div class="col-md-3"><input name="actions" class="form-control" placeholder="Hành động (vd: fan:ON)" required></div>
         <div class="col-md-2"><button class="btn btn-primary w-100">Thêm ngưỡng</button></div>
@@ -80,7 +84,6 @@
     </div>
   </div>
 </div>
-
 <script>
 const socket = io();
 
@@ -88,14 +91,17 @@ const socket = io();
 const ctx = document.getElementById('sensorChart');
 const sensorChart = new Chart(ctx, {
   type: 'line',
-  data: { labels: [], datasets: [
-    { label: 'Nhiệt độ (°C)', data: [], borderColor: 'red' },
-    { label: 'Độ ẩm (%)', data: [], borderColor: 'blue' },
-    { label: 'Ánh sáng (lux)', data: [], borderColor: 'orange' }
-  ]}
+  data: {
+    labels: [],
+    datasets: [
+      { label: 'Nhiệt độ (°C)', data: [], borderColor: 'red' },
+      { label: 'Độ ẩm (%)', data: [], borderColor: 'blue' },
+      { label: 'Ánh sáng (lux)', data: [], borderColor: 'orange' }
+    ]
+  }
 });
 
-// Devices
+// Devices render
 socket.on("devices", devices => {
   const statusDiv = document.getElementById("device-status");
   const controlsDiv = document.getElementById("device-controls");
@@ -104,53 +110,55 @@ socket.on("devices", devices => {
   devices.forEach(d => {
     const isCurtain = d.deviceId === "curtain";
     const status = isCurtain ? (d.state?.mode || "STOP") : (d.state?.on ? "ON" : "OFF");
-    const badgeClass = (status==="ON"||status==="OPEN") ? "bg-success" : (status==="CLOSE"?"bg-warning":"bg-secondary");
+    const badgeClass =
+      status === "ON" || status === "OPEN"
+        ? "bg-success"
+        : status === "CLOSE"
+        ? "bg-warning"
+        : "bg-secondary";
+
     statusDiv.innerHTML += `<p><strong>${d.deviceId}:</strong> <span class="badge ${badgeClass}">${status}</span></p>`;
-    if(isCurtain){
-      const mode = d.state?.mode||"STOP";
+
+    if (isCurtain) {
+      const mode = d.state?.mode || "STOP";
       controlsDiv.innerHTML += `
         <form method="post" action="/api/devices/curtain/command" class="btn-group mb-2">
-          <button name="cmd" value="OPEN" class="btn ${mode==="OPEN"?"btn-primary active":"btn-outline-primary"}">Mở</button>
-          <button name="cmd" value="CLOSE" class="btn ${mode==="CLOSE"?"btn-warning active":"btn-outline-warning"}">Đóng</button>
-          <button name="cmd" value="STOP" class="btn ${mode==="STOP"?"btn-secondary active":"btn-outline-secondary"}">Ngừng</button>
+          <button name="cmd" value="OPEN" class="btn ${mode==="OPEN" ? "btn-primary active" : "btn-outline-primary"}">Mở</button>
+          <button name="cmd" value="CLOSE" class="btn ${mode==="CLOSE" ? "btn-warning active" : "btn-outline-warning"}">Đóng</button>
+          <button name="cmd" value="STOP" class="btn ${mode==="STOP" ? "btn-secondary active" : "btn-outline-secondary"}">Ngừng</button>
         </form>`;
     } else {
       const on = !!d.state?.on;
       controlsDiv.innerHTML += `
         <form method="post" action="/api/devices/${d.deviceId}/command" class="btn-group mb-2">
-          <button name="cmd" value="ON" class="btn ${on?"btn-success active":"btn-outline-success"}">Bật</button>
-          <button name="cmd" value="OFF" class="btn ${!on?"btn-secondary active":"btn-outline-secondary"}">Tắt</button>
+          <button name="cmd" value="ON" class="btn ${on ? "btn-success active" : "btn-outline-success"}">Bật</button>
+          <button name="cmd" value="OFF" class="btn ${!on ? "btn-secondary active" : "btn-outline-secondary"}">Tắt</button>
         </form>`;
     }
   });
 });
 
-// Sensors
+// Sensors render
 socket.on("sensors", sensors => {
-  const temps = sensors.filter(s=>s.sensorType==="temperature").reverse();
-  const hums  = sensors.filter(s=>s.sensorType==="humidity").reverse();
-  const luxes = sensors.filter(s=>s.sensorType==="lux").reverse();
-  sensorChart.data.labels = (temps.length?temps:hums.length?hums:luxes).map(s=>new Date(s.timestamp).toLocaleTimeString());
-  sensorChart.data.datasets[0].data = temps.map(s=>s.value);
-  sensorChart.data.datasets[1].data = hums.map(s=>s.value);
-  sensorChart.data.datasets[2].data = luxes.map(s=>s.value);
+  const temps = sensors.filter(s => s.sensorType === "temperature").reverse();
+  const hums  = sensors.filter(s => s.sensorType === "humidity").reverse();
+  const luxes = sensors.filter(s => s.sensorType === "lux").reverse();
+
+  const refSeries = temps.length ? temps : (hums.length ? hums : luxes);
+  sensorChart.data.labels = refSeries.map(s => new Date(s.timestamp).toLocaleTimeString());
+
+  sensorChart.data.datasets[0].data = temps.map(s => s.value);
+  sensorChart.data.datasets[1].data = hums.map(s => s.value);
+  sensorChart.data.datasets[2].data = luxes.map(s => s.value);
   sensorChart.update();
-  const avg = arr => arr.length ? (arr.reduce((a,b)=>a+b.value,0)/arr.length).toFixed(1) : "--";
+
+  const avg = arr => arr.length ? (arr.reduce((a, b) => a + b.value, 0) / arr.length).toFixed(1) : "--";
   document.getElementById("avg-temp").innerText = avg(temps);
   document.getElementById("avg-hum").innerText  = avg(hums);
   document.getElementById("avg-lux").innerText  = avg(luxes);
 });
 
-// Thresholds
-socket.on("thresholds", list => {
-  const div = document.getElementById("threshold-list");
-  div.innerHTML = list.length ? `<ul class="list-group">${list.map(t=>`
-    <li class="list-group-item d-flex justify-content-between align-items-center">
-      <span><strong>${t.sensorType}</strong> ${t.comparator} ${t.value} → ${t.actions.join(", ")}</span>
-      <form method="post" action="/api/thresholds/${t._id}/delete"><button class="btn btn-sm btn-outline-danger">Xóa</button></form>
-    </li>`).join("")}</ul>` : "<p class='text-muted'>Chưa có ngưỡng nào.</p
-    <!-- Thresholds render -->
-<script>
+// Thresholds render
 socket.on("thresholds", list => {
   const div = document.getElementById("threshold-list");
   if (!list || list.length === 0) {
@@ -159,17 +167,21 @@ socket.on("thresholds", list => {
   }
   div.innerHTML = `
     <ul class="list-group">
-      ${list.map(t => `
-        <li class="list-group-item d-flex justify-content-between align-items-center">
-          <span>
-            <strong>${t.sensorType}</strong> ${t.comparator} ${t.value}
-            → ${t.actions.join(", ")}
-            ${t.timeStart || t.timeEnd ? ` | Khung: ${t.timeStart || "..."} - ${t.timeEnd || "..."}` : ""}
-          </span>
-          <form method="post" action="/api/thresholds/${t._id}/delete">
-            <button class="btn btn-sm btn-outline-danger">Xóa</button>
-          </form>
-        </li>`).join("")}
+      ${list.map(t => {
+        const timeInfo = (t.timeStart || t.timeEnd)
+          ? ` | Khung: ${t.timeStart || "..."} - ${t.timeEnd || "..."}`
+          : "";
+        const actionsText = Array.isArray(t.actions) ? t.actions.join(", ") : t.actions;
+        return `
+          <li class="list-group-item d-flex justify-content-between align-items-center">
+            <span>
+              <strong>${t.sensorType}</strong> ${t.comparator} ${t.value} → ${actionsText}${timeInfo}
+            </span>
+            <form method="post" action="/api/thresholds/${t._id}/delete">
+              <button class="btn btn-sm btn-outline-danger">Xóa</button>
+            </form>
+          </li>`;
+      }).join("")}
     </ul>`;
 });
 
@@ -194,4 +206,3 @@ socket.on("schedules", list => {
 </script>
 </body>
 </html>
-
