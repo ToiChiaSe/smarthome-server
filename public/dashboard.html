@@ -1,291 +1,56 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="vi">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="utf-8">
   <title>Smart Home Dashboard</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <script src="/socket.io/socket.io.js"></script>
-  <style>
-    body { background-color: #121212; color: #e0e0e0; }
-    .card { background-color: #1e1e1e; }
-  </style>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
-<body>
-<div class="container mt-4">
-  <div class="d-flex justify-content-between align-items-center mb-3">
-    <h2 class="text-info">Smart Home Dashboard</h2>
-    <form method="post" action="/logout">
-      <button class="btn btn-outline-danger btn-sm">Đăng xuất</button>
-    </form>
+<body class="container py-4">
+  <h2 class="mb-4 text-center">Smart Home Dashboard</h2>
+
+  <!-- Cards cảm biến -->
+  <div class="row mb-4">
+    <div class="col-md-4"><div class="card text-center"><div class="card-header bg-danger text-white">Nhiệt độ</div><div class="card-body"><div id="temp" class="fs-2 fw-bold">-- °C</div></div></div></div>
+    <div class="col-md-4"><div class="card text-center"><div class="card-header bg-primary text-white">Độ ẩm</div><div class="card-body"><div id="hum" class="fs-2 fw-bold">-- %</div></div></div></div>
+    <div class="col-md-4"><div class="card text-center"><div class="card-header bg-warning">Ánh sáng</div><div class="card-body"><div id="light" class="fs-2 fw-bold">-- lux</div></div></div></div>
   </div>
 
-  <!-- Điều khiển + Trạng thái -->
-  <div class="row">
-    <div class="col-md-6">
-      <div class="card shadow mb-4">
-        <div class="card-header bg-primary text-white">Điều khiển thiết bị</div>
-        <div class="card-body" id="device-controls"></div>
-      </div>
-    </div>
-    <div class="col-md-6">
-      <div class="card shadow mb-4">
-        <div class="card-header bg-success text-white">Trạng thái thiết bị</div>
-        <div class="card-body" id="device-status"></div>
-      </div>
+  <!-- Trạng thái thiết bị -->
+  <div class="card mb-4">
+    <div class="card-header bg-success text-white">Trạng thái thiết bị</div>
+    <div class="card-body row text-center">
+      <div class="col-md-2">LED1: <span id="led1">--</span></div>
+      <div class="col-md-2">LED2: <span id="led2">--</span></div>
+      <div class="col-md-2">LED3: <span id="led3">--</span></div>
+      <div class="col-md-2">LED4: <span id="led4">--</span></div>
+      <div class="col-md-2">Quạt: <span id="fan">--</span></div>
+      <div class="col-md-2">Rèm: <span id="curtainMode">--</span></div>
     </div>
   </div>
 
-  <!-- Biểu đồ cảm biến -->
-  <div class="card shadow mb-4">
-    <div class="card-header bg-info text-white">Thông số cảm biến</div>
-    <div class="card-body">
-      <canvas id="sensorChart" height="120"></canvas>
+  <!-- Nút điều khiển -->
+  <div class="card mb-4">
+    <div class="card-header bg-secondary text-white">Điều khiển thiết bị</div>
+    <div class="card-body d-flex flex-wrap gap-2">
+      <button class="btn btn-outline-danger" onclick="sendCmd('truong/home/cmd/led1','ON')">LED1 ON</button>
+      <button class="btn btn-outline-danger" onclick="sendCmd('truong/home/cmd/led1','OFF')">LED1 OFF</button>
+      <button class="btn btn-outline-primary" onclick="sendCmd('truong/home/cmd/fan','ON')">Fan ON</button>
+      <button class="btn btn-outline-primary" onclick="sendCmd('truong/home/cmd/fan','OFF')">Fan OFF</button>
+      <button class="btn btn-outline-warning" onclick="sendCmd('truong/home/cmd/curtain','OPEN')">Curtain OPEN</button>
+      <button class="btn btn-outline-warning" onclick="sendCmd('truong/home/cmd/curtain','CLOSE')">Curtain CLOSE</button>
+      <button class="btn btn-outline-warning" onclick="sendCmd('truong/home/cmd/curtain','STOP')">Curtain STOP</button>
     </div>
   </div>
 
-  <!-- Báo cáo thống kê -->
-  <div class="card shadow mb-4">
-    <div class="card-header bg-warning text-dark">Báo cáo thống kê</div>
-    <div class="card-body">
-      <p>Nhiệt độ trung bình: <span id="avg-temp">--</span> °C</p>
-      <p>Độ ẩm trung bình: <span id="avg-hum">--</span> %</p>
-      <p>Ánh sáng trung bình: <span id="avg-lux">--</span> lux</p>
-    </div>
-  </div>
-  <!-- Ngưỡng Auto Mode -->
-  <div class="card shadow mb-4">
-    <div class="card-header bg-danger text-white">Ngưỡng Auto Mode</div>
-    <div class="card-body">
-      <form method="post" action="/api/thresholds" class="row g-3">
-        <div class="col-md-3">
-          <select name="sensorType" class="form-select" required>
-            <option value="temperature">Nhiệt độ</option>
-            <option value="humidity">Độ ẩm</option>
-            <option value="lux">Ánh sáng</option>
-          </select>
-        </div>
-        <div class="col-md-2">
-          <select name="comparator" class="form-select">
-            <option value=">">&gt;</option>
-            <option value="<">&lt;</option>
-          </select>
-        </div>
-        <div class="col-md-2">
-          <input name="value" type="number" class="form-control" placeholder="Giá trị" required>
-        </div>
-        <div class="col-md-3">
-          <select name="actions" class="form-select" required>
-            <option value="fan:ON">Quạt bật</option>
-            <option value="fan:OFF">Quạt tắt</option>
-            <option value="led1:ON">Đèn 1 bật</option>
-            <option value="led1:OFF">Đèn 1 tắt</option>
-            <option value="curtain:OPEN">Rèm mở</option>
-            <option value="curtain:CLOSE">Rèm đóng</option>
-            <option value="curtain:STOP">Rèm dừng</option>
-          </select>
-        </div>
-        <div class="col-md-2">
-          <button class="btn btn-primary w-100">Thêm ngưỡng</button>
-        </div>
-      </form>
-      <div id="threshold-list" class="mt-3"></div>
-    </div>
+  <!-- Biểu đồ -->
+  <div class="card">
+    <div class="card-header bg-info text-white">Biểu đồ cảm biến</div>
+    <div class="card-body"><canvas id="sensorChart" height="120"></canvas></div>
   </div>
 
-  <!-- Lịch hẹn -->
-  <div class="card shadow mb-4">
-    <div class="card-header bg-secondary text-white">Lịch hẹn</div>
-    <div class="card-body">
-      <form method="post" action="/api/schedules" class="row g-3">
-        <div class="col-md-3">
-          <select name="deviceId" class="form-select" required>
-            <option value="fan">Quạt</option>
-            <option value="led1">Đèn 1</option>
-            <option value="led2">Đèn 2</option>
-            <option value="led3">Đèn 3</option>
-            <option value="led4">Đèn 4</option>
-            <option value="curtain">Rèm</option>
-          </select>
-        </div>
-        <div class="col-md-3">
-          <input name="date" type="date" class="form-control" required>
-        </div>
-        <div class="col-md-2">
-          <input name="time" type="time" class="form-control" required>
-        </div>
-        <div class="col-md-2">
-          <select name="action" class="form-select" required>
-            <option value="ON">Bật</option>
-            <option value="OFF">Tắt</option>
-            <option value="OPEN">Mở rèm</option>
-            <option value="CLOSE">Đóng rèm</option>
-            <option value="STOP">Dừng rèm</option>
-          </select>
-        </div>
-        <div class="col-md-2">
-          <button class="btn btn-primary w-100">Thêm lịch</button>
-        </div>
-      </form>
-      <div id="schedule-list" class="mt-3"></div>
-    </div>
-  </div>
-
-  <!-- Quản lý người dùng -->
-  <div class="card shadow mb-4">
-    <div class="card-header bg-dark text-white">Quản lý người dùng</div>
-    <div class="card-body">
-      <form method="post" action="/api/users" class="row g-3">
-        <div class="col-md-3">
-          <input name="username" class="form-control" placeholder="Tên đăng nhập" required>
-        </div>
-        <div class="col-md-3">
-          <input name="password" type="password" class="form-control" placeholder="Mật khẩu" required>
-        </div>
-        <div class="col-md-3">
-          <select name="role" class="form-select" required>
-            <option value="user">Người dùng</option>
-            <option value="admin">Quản trị</option>
-          </select>
-        </div>
-        <div class="col-md-3">
-          <button class="btn btn-primary w-100">Thêm tài khoản</button>
-        </div>
-      </form>
-      <div id="user-list" class="mt-3"></div>
-    </div>
-  </div>
-</div>
-<script>
-const socket = io();
-
-// Chart setup
-const ctx = document.getElementById('sensorChart');
-const sensorChart = new Chart(ctx, {
-  type: 'line',
-  data: { labels: [], datasets: [
-    { label: 'Nhiệt độ (°C)', data: [], borderColor: 'red' },
-    { label: 'Độ ẩm (%)', data: [], borderColor: 'blue' },
-    { label: 'Ánh sáng (lux)', data: [], borderColor: 'orange' }
-  ]}
-});
-
-// Devices render
-socket.on("devices", devices => {
-  const statusDiv = document.getElementById("device-status");
-  const controlsDiv = document.getElementById("device-controls");
-  statusDiv.innerHTML = "";
-  controlsDiv.innerHTML = "";
-  devices.forEach(d => {
-    const isCurtain = d.deviceId === "curtain";
-    const status = isCurtain ? (d.state?.mode || "STOP") : (d.state?.on ? "ON" : "OFF");
-    const badgeClass = (status==="ON"||status==="OPEN") ? "bg-success" : (status==="CLOSE"?"bg-warning":"bg-secondary");
-    statusDiv.innerHTML += `<p><strong>${d.deviceId}:</strong> <span class="badge ${badgeClass}">${status}</span></p>`;
-
-    if (isCurtain) {
-      const mode = d.state?.mode || "STOP";
-      controlsDiv.innerHTML += `
-        <form method="post" action="/api/devices/curtain/command" class="btn-group mb-2">
-          <button name="cmd" value="OPEN" class="btn ${mode==="OPEN" ? "btn-primary active" : "btn-outline-primary"}">Mở</button>
-          <button name="cmd" value="CLOSE" class="btn ${mode==="CLOSE" ? "btn-warning active" : "btn-outline-warning"}">Đóng</button>
-          <button name="cmd" value="STOP" class="btn ${mode==="STOP" ? "btn-secondary active" : "btn-outline-secondary"}">Dừng</button>
-        </form>`;
-    } else {
-      const on = !!d.state?.on;
-      controlsDiv.innerHTML += `
-        <form method="post" action="/api/devices/${d.deviceId}/command" class="btn-group mb-2">
-          <button name="cmd" value="ON" class="btn ${on ? "btn-success active" : "btn-outline-success"}">Bật</button>
-          <button name="cmd" value="OFF" class="btn ${!on ? "btn-secondary active" : "btn-outline-secondary"}">Tắt</button>
-        </form>`;
-    }
-  });
-});
-
-// Sensors render
-socket.on("sensors", sensors => {
-  const temps = sensors.filter(s => s.sensorType === "temperature").reverse();
-  const hums  = sensors.filter(s => s.sensorType === "humidity").reverse();
-  const luxes = sensors.filter(s => s.sensorType === "lux").reverse();
-
-  const refSeries = temps.length ? temps : (hums.length ? hums : luxes);
-  sensorChart.data.labels = refSeries.map(s => new Date(s.timestamp).toLocaleTimeString());
-
-  sensorChart.data.datasets[0].data = temps.map(s => s.value);
-  sensorChart.data.datasets[1].data = hums.map(s => s.value);
-  sensorChart.data.datasets[2].data = luxes.map(s => s.value);
-  sensorChart.update();
-
-  const avg = arr => arr.length ? (arr.reduce((a, b) => a + b.value, 0) / arr.length).toFixed(1) : "--";
-  document.getElementById("avg-temp").innerText = avg(temps);
-  document.getElementById("avg-hum").innerText  = avg(hums);
-  document.getElementById("avg-lux").innerText  = avg(luxes);
-});
-
-// Thresholds render
-socket.on("thresholds", list => {
-  const div = document.getElementById("threshold-list");
-  if (!list || list.length === 0) {
-    div.innerHTML = "<p class='text-muted'>Chưa có ngưỡng nào.</p>";
-    return;
-  }
-  div.innerHTML = `
-    <ul class="list-group">
-      ${list.map(t => {
-        const timeInfo = (t.timeStart || t.timeEnd)
-          ? ` | Khung: ${t.timeStart || "..."} - ${t.timeEnd || "..."}`
-          : "";
-        const actionsText = Array.isArray(t.actions) ? t.actions.join(", ") : t.actions;
-        return `
-          <li class="list-group-item d-flex justify-content-between align-items-center">
-            <span>
-              <strong>${t.sensorType}</strong> ${t.comparator} ${t.value} → ${actionsText}${timeInfo}
-            </span>
-            <form method="post" action="/api/thresholds/${t._id}/delete">
-              <button class="btn btn-sm btn-outline-danger">Xóa</button>
-            </form>
-          </li>`;
-      }).join("")}
-    </ul>`;
-});
-
-// Schedules render
-socket.on("schedules", list => {
-  const div = document.getElementById("schedule-list");
-  if (!list || list.length === 0) {
-    div.innerHTML = "<p class='text-muted'>Chưa có lịch nào.</p>";
-    return;
-  }
-  div.innerHTML = `
-    <ul class="list-group">
-      ${list.map(s => `
-        <li class="list-group-item d-flex justify-content-between align-items-center">
-          <span><strong>${s.deviceId}</strong> @ ${s.date} ${s.time} → ${s.action}</span>
-          <form method="post" action="/api/schedules/${s._id}/delete">
-            <button class="btn btn-sm btn-outline-danger">Xóa</button>
-          </form>
-        </li>`).join("")}
-    </ul>`;
-});
-
-// Users render
-socket.on("users", list => {
-  const div = document.getElementById("user-list");
-  if (!list || list.length === 0) {
-    div.innerHTML = "<p class='text-muted'>Chưa có người dùng nào.</p>";
-    return;
-  }
-  div.innerHTML = `
-    <ul class="list-group">
-      ${list.map(u => `
-        <li class="list-group-item d-flex justify-content-between align-items-center">
-          <span><strong>${u.username}</strong> (role: ${u.role})</span>
-          <form method="post" action="/api/users/${u._id}/delete">
-            <button class="btn btn-sm btn-outline-danger">Xóa</button>
-          </form>
-        </li>`).join("")}
-    </ul>`;
-});
-</script>
+  <script src="/js/dashboard.js"></script>
 </body>
 </html>
