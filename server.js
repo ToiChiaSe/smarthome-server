@@ -192,8 +192,8 @@ io.on("connection", async (socket) => {
   const lastStatus = await DeviceStatus.find().sort({ timestamp: -1 }).limit(1).lean();
   if (lastStatus[0]) socket.emit("deviceStatus", lastStatus[0]);
 
-  const thresholds = await Threshold.findOne().lean();
-  socket.emit("thresholds", thresholds || {});
+  const thresholds = await Threshold.find().lean();
+  socket.emit("thresholds", thresholds);
 
   const schedules = await Schedule.find().sort({ time: 1 }).lean();
   socket.emit("schedules", schedules);
