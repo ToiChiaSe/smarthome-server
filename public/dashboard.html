@@ -7,11 +7,15 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="/socket.io/socket.io.js"></script>
+  <style>
+    body { background-color: #121212; color: #e0e0e0; }
+    .card { background-color: #1e1e1e; }
+  </style>
 </head>
-<body class="bg-light">
+<body>
 <div class="container mt-4">
   <div class="d-flex justify-content-between align-items-center mb-3">
-    <h2 class="text-primary">🏠 Smart Home Dashboard</h2>
+    <h2 class="text-info">🏠 Smart Home Dashboard</h2>
     <form method="post" action="/logout">
       <button class="btn btn-outline-danger btn-sm">Đăng xuất</button>
     </form>
@@ -55,16 +59,36 @@
     <div class="card-header bg-danger text-white">Ngưỡng Auto Mode</div>
     <div class="card-body">
       <form method="post" action="/api/thresholds" class="row g-3">
-        <div class="col-md-3"><input name="sensorType" class="form-control" placeholder="Sensor" required></div>
+        <div class="col-md-3">
+          <select name="sensorType" class="form-select" required>
+            <option value="temperature">Nhiệt độ</option>
+            <option value="humidity">Độ ẩm</option>
+            <option value="lux">Ánh sáng</option>
+          </select>
+        </div>
         <div class="col-md-2">
           <select name="comparator" class="form-select">
             <option value=">">&gt;</option>
             <option value="<">&lt;</option>
           </select>
         </div>
-        <div class="col-md-2"><input name="value" type="number" class="form-control" placeholder="Giá trị" required></div>
-        <div class="col-md-3"><input name="actions" class="form-control" placeholder="Hành động (vd: fan:ON)" required></div>
-        <div class="col-md-2"><button class="btn btn-primary w-100">Thêm ngưỡng</button></div>
+        <div class="col-md-2">
+          <input name="value" type="number" class="form-control" placeholder="Giá trị" required>
+        </div>
+        <div class="col-md-3">
+          <select name="actions" class="form-select" required>
+            <option value="fan:ON">Quạt bật</option>
+            <option value="fan:OFF">Quạt tắt</option>
+            <option value="led1:ON">Đèn 1 bật</option>
+            <option value="led1:OFF">Đèn 1 tắt</option>
+            <option value="curtain:OPEN">Rèm mở</option>
+            <option value="curtain:CLOSE">Rèm đóng</option>
+            <option value="curtain:STOP">Rèm dừng</option>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <button class="btn btn-primary w-100">Thêm ngưỡng</button>
+        </div>
       </form>
       <div id="threshold-list" class="mt-3"></div>
     </div>
@@ -75,12 +99,61 @@
     <div class="card-header bg-secondary text-white">Lịch hẹn</div>
     <div class="card-body">
       <form method="post" action="/api/schedules" class="row g-3">
-        <div class="col-md-3"><input name="deviceId" class="form-control" placeholder="Thiết bị" required></div>
-        <div class="col-md-3"><input name="cron" class="form-control" placeholder="HH:mm" required></div>
-        <div class="col-md-3"><input name="action" class="form-control" placeholder="ON/OFF/OPEN/CLOSE/STOP" required></div>
-        <div class="col-md-2"><button class="btn btn-primary w-100">Thêm lịch</button></div>
+        <div class="col-md-3">
+          <select name="deviceId" class="form-select" required>
+            <option value="fan">Quạt</option>
+            <option value="led1">Đèn 1</option>
+            <option value="led2">Đèn 2</option>
+            <option value="led3">Đèn 3</option>
+            <option value="led4">Đèn 4</option>
+            <option value="curtain">Rèm</option>
+          </select>
+        </div>
+        <div class="col-md-3">
+          <input name="date" type="date" class="form-control" required>
+        </div>
+        <div class="col-md-2">
+          <input name="time" type="time" class="form-control" required>
+        </div>
+        <div class="col-md-2">
+          <select name="action" class="form-select" required>
+            <option value="ON">Bật</option>
+            <option value="OFF">Tắt</option>
+            <option value="OPEN">Mở rèm</option>
+            <option value="CLOSE">Đóng rèm</option>
+            <option value="STOP">Dừng rèm</option>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <button class="btn btn-primary w-100">Thêm lịch</button>
+        </div>
       </form>
       <div id="schedule-list" class="mt-3"></div>
+    </div>
+  </div>
+
+  <!-- Quản lý người dùng -->
+  <div class="card shadow mb-4">
+    <div class="card-header bg-dark text-white">Quản lý người dùng</div>
+    <div class="card-body">
+      <form method="post" action="/api/users" class="row g-3">
+        <div class="col-md-3">
+          <input name="username" class="form-control" placeholder="Tên đăng nhập" required>
+        </div>
+        <div class="col-md-3">
+          <input name="password" type="password" class="form-control" placeholder="Mật khẩu" required>
+        </div>
+        <div class="col-md-3">
+          <select name="role" class="form-select" required>
+            <option value="user">Người dùng</option>
+            <option value="admin">Quản trị</option>
+          </select>
+        </div>
+        <div class="col-md-3">
+          <button class="btn btn-primary w-100">Thêm tài khoản</button>
+        </div>
+      </form>
+      <div id="user-list" class="mt-3"></div>
     </div>
   </div>
 </div>
@@ -91,14 +164,11 @@ const socket = io();
 const ctx = document.getElementById('sensorChart');
 const sensorChart = new Chart(ctx, {
   type: 'line',
-  data: {
-    labels: [],
-    datasets: [
-      { label: 'Nhiệt độ (°C)', data: [], borderColor: 'red' },
-      { label: 'Độ ẩm (%)', data: [], borderColor: 'blue' },
-      { label: 'Ánh sáng (lux)', data: [], borderColor: 'orange' }
-    ]
-  }
+  data: { labels: [], datasets: [
+    { label: 'Nhiệt độ (°C)', data: [], borderColor: 'red' },
+    { label: 'Độ ẩm (%)', data: [], borderColor: 'blue' },
+    { label: 'Ánh sáng (lux)', data: [], borderColor: 'orange' }
+  ]}
 });
 
 // Devices render
@@ -110,13 +180,7 @@ socket.on("devices", devices => {
   devices.forEach(d => {
     const isCurtain = d.deviceId === "curtain";
     const status = isCurtain ? (d.state?.mode || "STOP") : (d.state?.on ? "ON" : "OFF");
-    const badgeClass =
-      status === "ON" || status === "OPEN"
-        ? "bg-success"
-        : status === "CLOSE"
-        ? "bg-warning"
-        : "bg-secondary";
-
+    const badgeClass = (status==="ON"||status==="OPEN") ? "bg-success" : (status==="CLOSE"?"bg-warning":"bg-secondary");
     statusDiv.innerHTML += `<p><strong>${d.deviceId}:</strong> <span class="badge ${badgeClass}">${status}</span></p>`;
 
     if (isCurtain) {
@@ -125,7 +189,7 @@ socket.on("devices", devices => {
         <form method="post" action="/api/devices/curtain/command" class="btn-group mb-2">
           <button name="cmd" value="OPEN" class="btn ${mode==="OPEN" ? "btn-primary active" : "btn-outline-primary"}">Mở</button>
           <button name="cmd" value="CLOSE" class="btn ${mode==="CLOSE" ? "btn-warning active" : "btn-outline-warning"}">Đóng</button>
-          <button name="cmd" value="STOP" class="btn ${mode==="STOP" ? "btn-secondary active" : "btn-outline-secondary"}">Ngừng</button>
+          <button name="cmd" value="STOP" class="btn ${mode==="STOP" ? "btn-secondary active" : "btn-outline-secondary"}">Dừng</button>
         </form>`;
     } else {
       const on = !!d.state?.on;
@@ -196,8 +260,27 @@ socket.on("schedules", list => {
     <ul class="list-group">
       ${list.map(s => `
         <li class="list-group-item d-flex justify-content-between align-items-center">
-          <span><strong>${s.deviceId}</strong> @ ${s.cron} → ${s.action}</span>
+          <span><strong>${s.deviceId}</strong> @ ${s.date} ${s.time} → ${s.action}</span>
           <form method="post" action="/api/schedules/${s._id}/delete">
+            <button class="btn btn-sm btn-outline-danger">Xóa</button>
+          </form>
+        </li>`).join("")}
+    </ul>`;
+});
+
+// Users render
+socket.on("users", list => {
+  const div = document.getElementById("user-list");
+  if (!list || list.length === 0) {
+    div.innerHTML = "<p class='text-muted'>Chưa có người dùng nào.</p>";
+    return;
+  }
+  div.innerHTML = `
+    <ul class="list-group">
+      ${list.map(u => `
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+          <span><strong>${u.username}</strong> (role: ${u.role})</span>
+          <form method="post" action="/api/users/${u._id}/delete">
             <button class="btn btn-sm btn-outline-danger">Xóa</button>
           </form>
         </li>`).join("")}
