@@ -17,9 +17,24 @@
 
   <!-- Cards cảm biến -->
   <div class="row mb-4">
-    <div class="col-md-4"><div class="card text-center"><div class="card-header bg-danger text-white">Nhiệt độ</div><div class="card-body"><div id="temp" class="fs-2 fw-bold">-- °C</div></div></div></div>
-    <div class="col-md-4"><div class="card text-center"><div class="card-header bg-primary text-white">Độ ẩm</div><div class="card-body"><div id="hum" class="fs-2 fw-bold">-- %</div></div></div></div>
-    <div class="col-md-4"><div class="card text-center"><div class="card-header bg-warning">Ánh sáng</div><div class="card-body"><div id="light" class="fs-2 fw-bold">-- lux</div></div></div></div>
+    <div class="col-md-4">
+      <div class="card text-center">
+        <div class="card-header bg-danger text-white">Nhiệt độ</div>
+        <div class="card-body"><div id="temp" class="fs-2 fw-bold">-- °C</div></div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card text-center">
+        <div class="card-header bg-primary text-white">Độ ẩm</div>
+        <div class="card-body"><div id="hum" class="fs-2 fw-bold">-- %</div></div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card text-center">
+        <div class="card-header bg-warning">Ánh sáng</div>
+        <div class="card-body"><div id="light" class="fs-2 fw-bold">-- lux</div></div>
+      </div>
+    </div>
   </div>
 
   <!-- Trạng thái thiết bị -->
@@ -39,12 +54,17 @@
   <div class="card mb-4">
     <div class="card-header bg-secondary text-white">Điều khiển thiết bị</div>
     <div class="card-body d-flex flex-wrap gap-2">
+      <!-- LED và Fan dạng toggle -->
       <button id="btn-led1" class="btn btn-outline-danger" onclick="toggleDevice('truong/home/cmd/led1','led1')">LED1</button>
       <button id="btn-led2" class="btn btn-outline-danger" onclick="toggleDevice('truong/home/cmd/led2','led2')">LED2</button>
       <button id="btn-led3" class="btn btn-outline-danger" onclick="toggleDevice('truong/home/cmd/led3','led3')">LED3</button>
       <button id="btn-led4" class="btn btn-outline-danger" onclick="toggleDevice('truong/home/cmd/led4','led4')">LED4</button>
       <button id="btn-fan"  class="btn btn-outline-primary" onclick="toggleDevice('truong/home/cmd/fan','fan')">Fan</button>
-      <button id="btn-curtain" class="btn btn-outline-warning" onclick="toggleCurtain()">Curtain</button>
+
+      <!-- Rèm có 3 nút riêng -->
+      <button id="btn-curtain-open"  class="btn btn-outline-warning" onclick="sendCurtain('OPEN')">Curtain OPEN</button>
+      <button id="btn-curtain-close" class="btn btn-outline-warning" onclick="sendCurtain('CLOSE')">Curtain CLOSE</button>
+      <button id="btn-curtain-stop"  class="btn btn-outline-warning" onclick="sendCurtain('STOP')">Curtain STOP</button>
     </div>
   </div>
 
@@ -52,9 +72,8 @@
   <div class="card mb-4">
     <div class="card-header bg-info text-white">Auto mode (ngưỡng)</div>
     <div class="card-body">
-      <!-- form giữ nguyên -->
       <form id="thresholdForm" class="row g-3">
-        <!-- ... như cũ ... -->
+        <!-- giữ nguyên form -->
       </form>
       <div id="auto-log" class="mt-3 text-muted"></div>
     </div>
@@ -64,9 +83,8 @@
   <div class="card mb-4">
     <div class="card-header bg-dark text-white">Lịch hẹn</div>
     <div class="card-body">
-      <!-- form giữ nguyên -->
       <form id="scheduleForm" class="row g-3">
-        <!-- ... như cũ ... -->
+        <!-- giữ nguyên form -->
       </form>
       <div id="scheduleList" class="mt-3"></div>
     </div>
