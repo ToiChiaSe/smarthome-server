@@ -272,3 +272,6 @@ mongoose.connect(DB_URI, { dbName: "smarthome" })
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
+app.get("/", (req, res) => {
+  res.redirect("/login.html");
+});
