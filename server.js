@@ -5,6 +5,7 @@ const { Server } = require("socket.io");
 const http = require("http");
 const bcrypt = require("bcrypt");
 const session = require("express-session");
+const MongoStore = require("connect-mongo");
 
 const Device = require("./models/Device");
 const Sensor = require("./models/Sensor");
@@ -19,7 +20,8 @@ const io = new Server(server);
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(express.static("public"));
-const MongoStore = require("connect-mongo");
+
+// Session lưu trong MongoDB thay vì MemoryStore
 app.use(session({
   secret: "secret-key",
   resave: false,
@@ -28,15 +30,15 @@ app.use(session({
     mongoUrl: process.env.MONGO_URI || "mongodb://127.0.0.1:27017/smarthome",
     collectionName: "sessions"
   }),
-  cookie: {
-    maxAge: 1000 * 60 * 60 * 24 // 1 ngày
-  }
+  cookie: { maxAge: 1000 * 60 * 60 * 24 } // 1 ngày
 }));
+
 // MongoDB connect
 const MONGO_URI = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/smarthome";
 mongoose.connect(MONGO_URI)
   .then(() => console.log("MongoDB connected"))
   .catch(err => console.error("MongoDB connection error:", err));
+
 // MQTT connect
 const client = mqtt.connect("mqtt://localhost:1883");
 client.on("connect", () => {
@@ -47,7 +49,7 @@ client.on("message", async (topic, message) => {
   const data = JSON.parse(message.toString());
   const sensor = new Sensor(data);
   await sensor.save();
-  io.emit("sensors", await Sensor.find().sort({timestamp:-1}).limit(60).lean());
+  io.emit("sensors", await Sensor.find().sort({ timestamp: -1 }).limit(60).lean());
 });
 
 // Login routes
@@ -104,10 +106,14 @@ app.post("/api/users/:id/delete", async (req, res) => {
 io.on("connection", async (socket) => {
   console.log("Client connected");
   socket.emit("devices", await Device.find().lean());
-  socket.emit("sensors", await Sensor.find().sort({timestamp:-1}).limit(60).lean());
+  socket.emit("sensors", await Sensor.find().sort({ timestamp: -1 }).limit(60).lean());
   socket.emit("thresholds", await Threshold.find().lean());
   socket.emit("schedules", await Schedule.find().lean());
   socket.emit("users", await User.find().lean());
 });
 
-server.listen(3000, () => console.log("Server chạy tại http://localhost:3000"));
+// Lắng nghe PORT Render cấp
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+  console.log(`Server chạy tại http://localhost:${PORT}`);
+});
