@@ -152,7 +152,8 @@ socket.on("thresholds", (th) => {
   document.getElementById("th-enabled").checked = !!th.enabled;
   document.getElementById("th-device").value = th.device ?? "fan";
   document.getElementById("th-date").value = th.date ?? "";
-  document.getElementById("th-time").value = th.time ?? "";
+  document.getElementById("th-timeStart").value = th.timeStart ?? "";
+  document.getElementById("th-timeEnd").value = th.timeEnd ?? "";
 
   document.getElementById("th-tmin").value = th.thresholds?.temperature?.min ?? "";
   document.getElementById("th-tmax").value = th.thresholds?.temperature?.max ?? "";
@@ -172,7 +173,8 @@ document.getElementById("thresholdForm").addEventListener("submit", async (e) =>
     enabled: document.getElementById("th-enabled").checked,
     device: document.getElementById("th-device").value,
     date: document.getElementById("th-date").value,
-    time: document.getElementById("th-time").value,
+    timeStart: document.getElementById("th-timeStart").value,
+    timeEnd: document.getElementById("th-timeEnd").value,
     thresholds: {
       temperature: {
         min: parseFloat(document.getElementById("th-tmin").value) || null,
