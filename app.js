@@ -5,13 +5,12 @@ import jwt from "jsonwebtoken";
 import mqtt from "mqtt";
 import bodyParser from "body-parser";
 
-// ====== Config ======
 const PORT = process.env.PORT || 3000;
 const DB_URI = process.env.MONGODB_URI;
 const JWT_SECRET = process.env.JWT_SECRET || "secret";
 const MQTT_URL = process.env.MQTT_URL || "mqtt://test.mosquitto.org:1883";
 
-// ====== Mongoose Models ======
+// ====== Models ======
 const userSchema = new mongoose.Schema({
   username: String,
   passwordHash: String,
@@ -22,7 +21,7 @@ const User = mongoose.model("User", userSchema);
 
 const deviceSchema = new mongoose.Schema({
   deviceId: String,
-  state: { on: Boolean }
+  state: { type: Object }
 });
 const Device = mongoose.model("Device", deviceSchema);
 
@@ -48,30 +47,23 @@ const sensorSchema = new mongoose.Schema({
 });
 const Sensor = mongoose.model("Sensor", sensorSchema);
 
-// ====== Express Setup ======
 const app = express();
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// ====== Helpers ======
 function layout(title, user, body) {
   return `<!DOCTYPE html>
-<html>
-<head>
-  <title>${title}</title>
-  <style>
-    body { font-family: sans-serif; margin:20px; }
-    .container { max-width:800px; margin:auto; }
-    .card { border:1px solid #ccc; padding:20px; margin-bottom:20px; }
-    .btn-green { background:#4CAF50; color:white; border:none; padding:6px 12px; cursor:pointer; }
-    .btn-gray { background:#ccc; border:none; padding:6px 12px; cursor:pointer; }
-  </style>
-</head>
-<body>
-  <h1>${title}</h1>
-  ${user ? `<p>Xin chào ${user.username} (${user.role})</p>` : ""}
-  ${body}
-</body>
-</html>`;
+<html><head><title>${title}</title>
+<style>
+body { font-family: sans-serif; margin:20px; }
+.container { max-width:800px; margin:auto; }
+.card { border:1px solid #ccc; padding:20px; margin-bottom:20px; }
+.btn-green { background:#4CAF50; color:white; border:none; padding:6px 12px; cursor:pointer; }
+.btn-gray { background:#ccc; border:none; padding:6px 12px; cursor:pointer; }
+</style></head><body>
+<h1>${title}</h1>
+${user ? `<p>Xin chào ${user.username} (${user.role})</p>` : ""}
+${body}
+</body></html>`;
 }
 
 function requireAuth(req, res, next) {
@@ -100,16 +92,14 @@ function apiAuth(req, res, next) {
 // Login
 app.get("/login", (req, res) => {
   const body = `
-    <div class="container">
-      <div class="card">
-        <h2>Đăng nhập</h2>
-        <form method="post" action="/login">
-          <input name="username" placeholder="Username" required />
-          <input name="password" type="password" placeholder="Password" required />
-          <button class="btn-green">Login</button>
-        </form>
-      </div>
-    </div>`;
+  <div class="container"><div class="card">
+    <h2>Đăng nhập</h2>
+    <form method="post" action="/login">
+      <input name="username" placeholder="Username" required />
+      <input name="password" type="password" placeholder="Password" required />
+      <button class="btn-green">Login</button>
+    </form>
+  </div></div>`;
   res.send(layout("Login", null, body));
 });
 
@@ -128,21 +118,40 @@ app.post("/login", async (req, res) => {
 app.get("/", requireAuth, async (req, res) => {
   const devices = await Device.find().lean();
   const body = `
-    <div class="container">
-      <div class="card">
-        <h2>Devices</h2>
-        <ul>
-          ${devices.map(d=>`
+  <div class="container"><div class="card">
+    <h2>Devices</h2>
+    <ul>
+      ${devices.map(d=>{
+        if(d.deviceId==="fan" || d.deviceId==="curtain"){
+          return `
+            <li>
+              ${d.deviceId} - ${d.state.mode}
+              <form method="post" action="/api/devices/${d.deviceId}/command" style="display:inline;">
+                <input type="hidden" name="cmd" value="OPEN"/>
+                <button class="btn-gray">Mở</button>
+              </form>
+              <form method="post" action="/api/devices/${d.deviceId}/command" style="display:inline;">
+                <input type="hidden" name="cmd" value="CLOSE"/>
+                <button class="btn-gray">Đóng</button>
+              </form>
+              <form method="post" action="/api/devices/${d.deviceId}/command" style="display:inline;">
+                <input type="hidden" name="cmd" value="STOP"/>
+                <button class="btn-gray">Ngừng</button>
+              </form>
+            </li>`;
+        } else {
+          return `
             <li>
               ${d.deviceId} - ${d.state.on?"ON":"OFF"}
               <form method="post" action="/api/devices/${d.deviceId}/command" style="display:inline;">
                 <input type="hidden" name="cmd" value="${d.state.on?"OFF":"ON"}"/>
                 <button class="btn-gray">${d.state.on?"Tắt":"Bật"}</button>
               </form>
-            </li>`).join("")}
-        </ul>
-      </div>
-    </div>`;
+            </li>`;
+        }
+      }).join("")}
+    </ul>
+  </div></div>`;
   res.send(layout("Dashboard", req.user, body));
 });
 
@@ -150,24 +159,20 @@ app.get("/", requireAuth, async (req, res) => {
 app.get("/users", requireAuth, async (req, res) => {
   const users = await User.find().lean();
   const body = `
-    <div class="container">
-      <div class="card">
-        <h2>Users</h2>
-        <ul>
-          ${users.map(u=>`<li>${u.username} (${u.role})</li>`).join("")}
-        </ul>
-        <h3>Thêm User</h3>
-        <form method="post" action="/api/users">
-          <input name="username" placeholder="Username" required />
-          <input name="password" type="password" placeholder="Password" required />
-          <select name="role">
-            <option value="guest">Guest</option>
-            <option value="admin">Admin</option>
-          </select>
-          <button class="btn-green">Thêm</button>
-        </form>
-      </div>
-    </div>`;
+  <div class="container"><div class="card">
+    <h2>Users</h2>
+    <ul>${users.map(u=>`<li>${u.username} (${u.role})</li>`).join("")}</ul>
+    <h3>Thêm User</h3>
+    <form method="post" action="/api/users">
+      <input name="username" placeholder="Username" required />
+      <input name="password" type="password" placeholder="Password" required />
+      <select name="role">
+        <option value="guest">Guest</option>
+        <option value="admin">Admin</option>
+      </select>
+      <button class="btn-green">Thêm</button>
+    </form>
+  </div></div>`;
   res.send(layout("Users", req.user, body));
 });
 
@@ -183,37 +188,79 @@ app.post("/api/devices/:id/command", apiAuth, async (req, res) => {
   const { id } = req.params;
   const { cmd } = req.body;
   let device = await Device.findOne({ deviceId: id });
-  if (!device) device = await Device.create({ deviceId: id, state: { on: false } });
-  device.state.on = (cmd === "ON");
+  if (!device) return res.redirect("/");
+
+  if(id==="fan" || id==="curtain"){
+    device.state.mode = cmd;   // OPEN, CLOSE, STOP
+  } else {
+    device.state.on = (cmd==="ON");
+  }
   await device.save();
+
   mqttClient.publish(`truong/home/${id}/command`, cmd);
   res.redirect("/");
 });
+// ====== Thresholds ======
+app.get("/thresholds", requireAuth, async (req, res) => {
+  const thresholds = await Threshold.find().lean();
+  const body = `
+  <div class="container"><div class="card">
+    <h2>Thresholds</h2>
+    <ul>
+      ${thresholds.map(t=>`
+        <li>
+          ${t.sensorType} ${t.comparator} ${t.value} → ${t.actions.join(",")}
+          <form method="post" action="/api/thresholds/${t._id}/delete" style="display:inline;">
+            <button class="btn-gray">Xóa</button>
+          </form>
+        </li>`).join("")}
+    </ul>
+    <h3>Thêm Threshold</h3>
+    <form method="post" action="/api/thresholds">
+      <input name="sensorType" placeholder="Sensor type" required />
+      <select name="comparator"><option value=">">&gt;</option><option value="<">&lt;</option></select>
+      <input name="value" type="number" placeholder="Giá trị" required />
+      <input name="actions" placeholder="Hành động, cách nhau bằng dấu phẩy" required />
+      <button class="btn-green">Thêm</button>
+    </form>
+  </div></div>`;
+  res.send(layout("Thresholds", req.user, body));
+});
+
+app.post("/api/thresholds", apiAuth, async (req, res) => {
+  const { sensorType, comparator, value, actions } = req.body;
+  await Threshold.create({ sensorType, comparator, value, actions: actions.split(",") });
+  res.redirect("/thresholds");
+});
+
+app.post("/api/thresholds/:id/delete", apiAuth, async (req, res) => {
+  await Threshold.findByIdAndDelete(req.params.id);
+  res.redirect("/thresholds");
+});
+
 // ====== Schedules ======
 app.get("/schedules", requireAuth, async (req, res) => {
   const schedules = await Schedule.find().lean();
   const body = `
-    <div class="container">
-      <div class="card">
-        <h2>Schedules</h2>
-        <ul>
-          ${schedules.map(s=>`
-            <li>
-              ${s.deviceId} ${s.cron} ${s.action}
-              <form method="post" action="/api/schedules/${s._id}/delete" style="display:inline;">
-                <button class="btn-gray">Xóa</button>
-              </form>
-            </li>`).join("")}
-        </ul>
-        <h3>Thêm Schedule</h3>
-        <form method="post" action="/api/schedules">
-          <input name="deviceId" placeholder="Device ID" required />
-          <input name="cron" placeholder="Biểu thức cron" required />
-          <input name="action" placeholder="Hành động (ON/OFF)" required />
-          <button class="btn-green">Thêm</button>
-        </form>
-      </div>
-    </div>`;
+  <div class="container"><div class="card">
+    <h2>Schedules</h2>
+    <ul>
+      ${schedules.map(s=>`
+        <li>
+          ${s.deviceId} ${s.cron} ${s.action}
+          <form method="post" action="/api/schedules/${s._id}/delete" style="display:inline;">
+            <button class="btn-gray">Xóa</button>
+          </form>
+        </li>`).join("")}
+    </ul>
+    <h3>Thêm Schedule</h3>
+    <form method="post" action="/api/schedules">
+      <input name="deviceId" placeholder="Device ID" required />
+      <input name="cron" placeholder="Biểu thức cron" required />
+      <input name="action" placeholder="Hành động (ON/OFF)" required />
+      <button class="btn-green">Thêm</button>
+    </form>
+  </div></div>`;
   res.send(layout("Schedules", req.user, body));
 });
 
@@ -228,23 +275,17 @@ app.post("/api/schedules/:id/delete", apiAuth, async (req, res) => {
   res.redirect("/schedules");
 });
 
-// ====== MQTT Handler ======
+// ====== MQTT ======
 const mqttClient = mqtt.connect(MQTT_URL);
 mqttClient.on("connect", () => {
   console.log("MQTT connected:", MQTT_URL);
 });
-
-// Lắng nghe dữ liệu từ ESP32
 mqttClient.on("message", async (topic, message) => {
   console.log("MQTT message:", topic, message.toString());
-
   if (topic.startsWith("truong/home/status/")) {
     const sensorType = topic.split("/").pop();
     const value = parseFloat(message.toString());
-
-    // Lưu dữ liệu cảm biến
     await Sensor.create({ sensorType, value });
-    console.log(`Saved sensor: ${sensorType} = ${value}`);
   }
 });
 
@@ -253,13 +294,26 @@ mongoose.connect(DB_URI, { dbName: "smarthome" })
   .then(() => console.log("MongoDB connected"))
   .catch(err => console.error("MongoDB error:", err));
 
-// ====== Seed admin user ======
+// ====== Seed admin user & devices ======
 (async () => {
   const exists = await User.findOne({ username: "admin" });
   if (!exists) {
     const hash = await bcrypt.hash("123456", 10);
     await User.create({ username: "admin", passwordHash: hash, role: "admin" });
     console.log("Seeded admin user");
+  }
+
+  const defaults = [
+    { deviceId: "led1", state: { on: false } },
+    { deviceId: "led2", state: { on: false } },
+    { deviceId: "led3", state: { on: false } },
+    { deviceId: "led4", state: { on: false } },
+    { deviceId: "fan", state: { mode: "STOP" } },
+    { deviceId: "curtain", state: { mode: "STOP" } }
+  ];
+  for (const d of defaults) {
+    const existsDev = await Device.findOne({ deviceId: d.deviceId });
+    if (!existsDev) await Device.create(d);
   }
 })();
 
