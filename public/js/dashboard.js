@@ -34,7 +34,6 @@ socket.on("deviceStatus", (st) => {
   updateButton("btn-led4", st.led4);
   updateButton("btn-fan",  st.fan);
 });
-
 // ====== Cập nhật màu nút toggle ======
 function updateButton(id, state) {
   const btn = document.getElementById(id);
@@ -71,18 +70,16 @@ async function sendCmd(topic, cmd) {
   if (!r.ok) alert("Gửi lệnh thất bại");
 }
 
-// ====== Auto mode log ======
+// ====== Log auto & schedule ======
 socket.on("autoAction", (info) => {
   const div = document.getElementById("auto-log");
   div.textContent = `[${new Date().toLocaleTimeString()}] Auto: ${info.reason} -> ${info.action} (${info.value})`;
 });
 
-// ====== Schedule log ======
 socket.on("scheduleAction", (info) => {
   const div = document.getElementById("auto-log");
-  div.textContent = `[${new Date().toLocaleTimeString()}] Schedule "${info.name}" ${info.time} -> ${info.cmd}`;
+  div.textContent = `[${new Date().toLocaleTimeString()}] Schedule "${info.name}" ${info.date} ${info.time} -> ${info.cmd}`;
 });
-
 // ====== Biểu đồ cảm biến ======
 const ctx = document.getElementById("sensorChart").getContext("2d");
 const chartData = {
@@ -106,6 +103,7 @@ const sensorChart = new Chart(ctx, {
     }
   }
 });
+
 socket.on("sensorsHistory", (history) => {
   chartData.labels = history.map(s => new Date(s.timestamp).toLocaleTimeString());
   chartData.datasets[0].data = history.map(s => s.temperature);
@@ -113,6 +111,7 @@ socket.on("sensorsHistory", (history) => {
   chartData.datasets[2].data = history.map(s => s.light ?? 0);
   sensorChart.update();
 });
+
 socket.on("sensors", (data) => {
   const s = Array.isArray(data) ? data[0] : data;
   if (!s) return;
@@ -126,20 +125,26 @@ socket.on("sensors", (data) => {
   }
   sensorChart.update();
 });
-
 // ====== Thresholds form ======
 socket.on("thresholds", (th) => {
   document.getElementById("th-enabled").checked = !!th.enabled;
+  document.getElementById("th-device").value = th.device ?? "fan";
+  document.getElementById("th-date").value = th.date ?? "";
+  document.getElementById("th-time").value = th.time ?? "";
   document.getElementById("th-tmin").value = th.temperature?.min ?? "";
   document.getElementById("th-tmax").value = th.temperature?.max ?? "";
   document.getElementById("th-ttopic").value = th.temperature?.actionTopic ?? "truong/home/cmd/fan";
   document.getElementById("th-ton").value = th.temperature?.actionOn ?? "ON";
   document.getElementById("th-toff").value = th.temperature?.actionOff ?? "OFF";
 });
+
 document.getElementById("thresholdForm").addEventListener("submit", async (e) => {
   e.preventDefault();
   const payload = {
     enabled: document.getElementById("th-enabled").checked,
+    device: document.getElementById("th-device").value,
+    date: document.getElementById("th-date").value,
+    time: document.getElementById("th-time").value,
     temperature: {
       min: parseFloat(document.getElementById("th-tmin").value),
       max: parseFloat(document.getElementById("th-tmax").value),
@@ -165,7 +170,7 @@ function renderSchedules(items) {
     const row = document.createElement("div");
     row.className = "d-flex align-items-center gap-2 py-1 border-bottom";
     row.innerHTML = `
-      <div class="flex-grow-1">${i.name} — ${i.time} — ${i.topic} — ${i.cmd}</div>
+      <div class="flex-grow-1">${i.name} — ${i.date} ${i.time} — ${i.device} — ${i.cmd}</div>
       <button class="btn btn-sm ${i.enabled ? "btn-success" : "btn-outline-secondary"}" onclick="toggleSchedule('${i._id}')">
         ${i.enabled ? "Bật" : "Tắt"}
       </button>
@@ -180,12 +185,13 @@ document.getElementById("scheduleForm").addEventListener("submit", async (e) => 
   e.preventDefault();
   const payload = {
     name: document.getElementById("sc-name").value,
+    date: document.getElementById("sc-date").value,
     time: document.getElementById("sc-time").value,
-    topic: document.getElementById("sc-topic").value,
+    device: document.getElementById("sc-device").value,
     cmd: document.getElementById("sc-cmd").value,
     enabled: true
   };
-const res = await fetch("/api/schedules", {
+  const res = await fetch("/api/schedules", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload)
