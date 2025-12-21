@@ -6,13 +6,15 @@ import cookieParser from "cookie-parser";
 import methodOverride from "method-override";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
+import mqtt from "mqtt";
 
 const app = express();
 
 // Env vars
-const PORT = process.env.PORT || 8080;
-const DB_URI = process.env.DB_URI;
+const PORT = process.env.PORT || 3000;
+const DB_URI = process.env.MONGODB_URI;
 const JWT_SECRET = process.env.JWT_SECRET || "change_this";
+const MQTT_URL = process.env.MQTT_URL || "mqtt://test.mosquitto.org:1883";
 
 // Connect DB
 mongoose.connect(DB_URI, { dbName: "smarthome" })
@@ -20,35 +22,26 @@ mongoose.connect(DB_URI, { dbName: "smarthome" })
   .catch((e) => console.error("MongoDB error:", e));
 
 // Schemas
-const permissionSchema = new mongoose.Schema({
-  resourceType: { type: String, default: "device" },
-  resourceId: String,
-  actions: [String]
-}, { _id: false });
-
 const userSchema = new mongoose.Schema({
   username: { type: String, unique: true },
   passwordHash: String,
   role: { type: String, enum: ["admin", "guest"], default: "guest" },
-  permissions: [permissionSchema]
-}, { timestamps: true });
-
+  permissions: []
+});
 const deviceSchema = new mongoose.Schema({
   deviceId: { type: String, unique: true },
   type: String,
   room: String,
   state: { on: { type: Boolean, default: false } }
-}, { timestamps: true });
-
+});
 const thresholdSchema = new mongoose.Schema({
   sensorType: String, comparator: String, value: Number,
   actions: [String], enabled: { type: Boolean, default: true }
-}, { timestamps: true });
-
+});
 const scheduleSchema = new mongoose.Schema({
   deviceId: String, cron: String, action: String,
   enabled: { type: Boolean, default: true }
-}, { timestamps: true });
+});
 
 const User = mongoose.model("User", userSchema);
 const Device = mongoose.model("Device", deviceSchema);
@@ -64,377 +57,302 @@ app.use(methodOverride("_method"));
 
 // Auth helpers
 function signToken(u) {
-  return jwt.sign(
-    { username: u.username, role: u.role, permissions: u.permissions },
-    JWT_SECRET,
-    { expiresIn: "2h" }
-  );
+  return jwt.sign({ username: u.username, role: u.role }, JWT_SECRET, { expiresIn: "2h" });
 }
 function requireAuth(req, res, next) {
   const token = req.cookies?.token;
   if (!token) return res.redirect("/login");
-  try {
-    req.user = jwt.verify(token, JWT_SECRET);
-    next();
-  } catch {
-    return res.redirect("/login");
-  }
+  try { req.user = jwt.verify(token, JWT_SECRET); next(); }
+  catch { return res.redirect("/login"); }
 }
 function apiAuth(req, res, next) {
   const token = req.cookies?.token || (req.headers.authorization?.split(" ")[1]);
   if (!token) return res.status(401).json({ error: "No token" });
-  try {
-    req.user = jwt.verify(token, JWT_SECRET);
-    next();
-  } catch {
-    res.status(401).json({ error: "Invalid token" });
-  }
+  try { req.user = jwt.verify(token, JWT_SECRET); next(); }
+  catch { res.status(401).json({ error: "Invalid token" }); }
 }
 
-// Seed admin on startup
+// Seed admin
 (async () => {
   const exists = await User.findOne({ username: "admin" });
   if (!exists) {
     const hash = await bcrypt.hash("123456", 10);
-    await User.create({ username: "admin", passwordHash: hash, role: "admin", permissions: [] });
+    await User.create({ username: "admin", passwordHash: hash, role: "admin" });
     console.log("Seeded admin: admin/123456");
   }
 })();
 
-// Views: inline HTML
-function layout(title, user, bodyHtml) {
-  return `<!DOCTYPE html>
-<html lang="vi"><head><meta charset="UTF-8"><title>${title}</title>
-<style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Segoe UI',sans-serif;background:#f5f7fa;color:#2c3e50}
-nav{background:#34495e;padding:12px;display:flex;align-items:center;gap:16px}
-nav a{color:#ecf0f1;text-decoration:none;font-weight:500}
-nav a:hover{text-decoration:underline}
-.btn-link{background:none;border:none;color:#ecf0f1;cursor:pointer;font-size:14px}
-.container{padding:20px;max-width:1000px;margin:auto}
-h1{margin-bottom:20px;font-size:28px}
-h2{margin-top:30px;margin-bottom:12px;font-size:22px}
-table{width:100%;border-collapse:collapse;margin-top:12px;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 6px rgba(0,0,0,.1)}
-th,td{padding:12px;border-bottom:1px solid #ddd;text-align:left}
-th{background:#2c3e50;color:#ecf0f1}
-tr:hover{background:#f0f8ff}
-form{margin-top:12px}
-input,select{padding:10px;margin-bottom:12px;border:1px solid #ccc;border-radius:6px;width:100%}
-button{padding:10px 16px;border:none;border-radius:6px;cursor:pointer}
-.btn-green{background:linear-gradient(90deg,#27ae60,#2ecc71);color:#fff;font-weight:600}
-.btn-green:hover{opacity:.9}
-.btn-red{background:#e74c3c;color:#fff;font-weight:600}
-.btn-red:hover{opacity:.9}
-.btn-gray{background:#95a5a6;color:#fff;font-weight:600}
-.muted{color:#6b7280;font-size:14px}
-section{margin-bottom:32px}
-.login-page{display:flex;justify-content:center;align-items:center;height:100vh}
-.login-box{background:#fff;padding:30px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.2);width:320px}
-.login-box h2{margin-bottom:20px;text-align:center}
-.login-box input{display:block;width:100%;margin-bottom:12px;padding:10px;border:1px solid #ccc;border-radius:6px}
-</style>
-</head>
-<body>
-<nav>
-  <a href="/dashboard">Dashboard</a>
-  <a href="/thresholds">Thresholds</a>
-  <a href="/schedules">Scheduler</a>
-  <a href="/users">Users</a>
-  ${user ? `<form method="post" action="/api/auth/logout" style="display:inline;"><button class="btn-link">Logout (${user.username})</button></form>` : ""}
-</nav>
-<div class="container">
-${bodyHtml}
-</div>
-</body></html>`;
-}
+// MQTT connect
+const mqttClient = mqtt.connect(MQTT_URL);
+let lastSensorData = null;
+let lastStatusData = null;
+let lastOtaResult = null;
 
-// Pages
-app.get("/", (req, res) => res.redirect("/login"));
-
-app.get("/login", (req, res) => {
-  res.send(`<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8"><title>Đăng nhập</title>
-  <style>
-  ${layout("", null, "").match(/<style>([\s\S]*?)<\/style>/)[1]}
-  </style></head><body class="login-page">
-  <div class="login-box">
-    <h2>SmartHome Login</h2>
-    <form method="post" action="/api/auth/login">
-      <input type="text" name="username" placeholder="Tên đăng nhập" required>
-      <input type="password" name="password" placeholder="Mật khẩu" required>
-      <button type="submit" class="btn-green">Đăng nhập</button>
-    </form>
-  </div>
-  </body></html>`);
+mqttClient.on("connect", () => {
+  console.log("MQTT connected:", MQTT_URL);
+  mqttClient.subscribe("truong/home/cambien");
+  mqttClient.subscribe("truong/home/status");
+  mqttClient.subscribe("truong/home/status/ota");
+});
+mqttClient.on("message", async (topic, message) => {
+  if (topic === "truong/home/cambien") {
+    try { lastSensorData = JSON.parse(message.toString()); } catch {}
+    const thresholds = await Threshold.find({ sensorType: { $exists: true }, enabled: true });
+    thresholds.forEach(t => {
+      const val = lastSensorData[t.sensorType];
+      if (val !== undefined) {
+        if (eval(`${val} ${t.comparator} ${t.value}`)) {
+          t.actions.forEach(act => {
+            mqttClient.publish("truong/home/cmd/device", act);
+          });
+        }
+      }
+    });
+  }
+  if (topic === "truong/home/status") {
+    try { lastStatusData = JSON.parse(message.toString()); } catch {}
+  }
+  if (topic === "truong/home/status/ota") {
+    lastOtaResult = message.toString();
+  }
 });
 
-// Login/logout
+// Views
+function layout(title, user, bodyHtml) {
+  return `<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8"><title>${title}</title>
+  <style>
+  :root {
+    --bg-color: #eef1f5; --text-color: #333; --card-bg: #fff;
+    --nav-bg: #1f2937; --nav-text: #fff;
+  }
+  body.dark {
+    --bg-color: #111827; --text-color: #e5e7eb; --card-bg: #1f2937;
+    --nav-bg: #000; --nav-text: #e5e7eb;
+  }
+  body { font-family: 'Segoe UI', Roboto, sans-serif; background: var(--bg-color); color: var(--text-color); }
+  nav { background: var(--nav-bg); padding: 14px 24px; display: flex; gap: 20px; align-items: center; }
+  nav a, nav button { color: var(--nav-text); text-decoration: none; font-weight: 500; }
+  nav a:hover { color: #60a5fa; }
+  .container { max-width: 1200px; margin: 30px auto; padding: 20px; }
+  .card { background: var(--card-bg); border-radius: 12px; padding: 20px; box-shadow: 0 6px 16px rgba(0,0,0,0.08); margin-bottom: 20px; }
+  h1,h2 { color: var(--text-color); }
+  canvas { width: 100% !important; height: 280px !important; }
+  button { padding: 10px 16px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; }
+  .btn-green { background: #10b981; color: #fff; } .btn-green:hover { background: #059669; }
+  .btn-red { background: #ef4444; color: #fff; } .btn-red:hover { background: #dc2626; }
+  .btn-gray { background: #6b7280; color: #fff; } .btn-gray:hover { background: #4b5563; }
+  ul { list-style: none; padding: 0; } li { margin-bottom: 10px; }
+  </style>
+  </head><body>
+  <nav>
+    <a href="/dashboard">Dashboard</a>
+    <a href="/thresholds">Thresholds</a>
+    <a href="/schedules">Scheduler</a>
+    <a href="/users">Users</a>
+    ${user ? `<form method="post" action="/api/auth/logout" style="display:inline;"><button>Logout (${user.username})</button></form>` : ""}
+    <button type="button" onclick="toggleDarkMode()" style="margin-left:auto;">🌓 Dark Mode</button>
+  </nav>
+  <script>function toggleDarkMode(){document.body.classList.toggle('dark');}</script>
+  ${bodyHtml}
+  </body></html>`;
+}
+
+// Routes
+app.get("/", (req, res) => res.redirect("/login"));
+app.get("/login", (req, res) => {
+  res.send(`<div class="container"><div class="card"><h2>Login</h2>
+    <form method="post" action="/api/auth/login">
+      <input name="username" placeholder="username"/>
+      <input name="password" type="password" placeholder="password"/>
+      <button class="btn-green" type="submit">Login</button>
+    </form></div></div>`);
+});
 app.post("/api/auth/login", async (req, res) => {
   const { username, password } = req.body;
   const u = await User.findOne({ username });
-  if (!u) return res.status(401).send("Sai tài khoản hoặc mật khẩu");
+  if (!u) return res.status(401).send("Sai tài khoản/mật khẩu");
   const ok = await bcrypt.compare(password, u.passwordHash);
-  if (!ok) return res.status(401).send("Sai tài khoản hoặc mật khẩu");
+  if (!ok) return res.status(401).send("Sai tài khoản/mật khẩu");
   const token = signToken(u);
-  res.cookie("token", token, { httpOnly: true, sameSite: "lax", secure: true });
+  res.cookie("token", token, { httpOnly: true });
   res.redirect("/dashboard");
 });
-app.post("/api/auth/logout", (req, res) => {
-  res.clearCookie("token");
-  res.redirect("/login");
-});
+app.post("/api/auth/logout", (req, res) => { res.clearCookie("token"); res.redirect("/login"); });
 
-// Dashboard devices page (with forms)
+// Dashboard
+// Dashboard
 app.get("/dashboard", requireAuth, async (req, res) => {
   const devices = await Device.find().lean();
-  const body = `
-<h1>SmartHome Dashboard</h1>
-<section>
-  <h2>Thiết bị</h2>
-  <table>
-    <thead><tr><th>ID</th><th>Type</th><th>Room</th><th>State</th><th>Hành động</th></tr></thead>
-    <tbody>
-      ${devices.map(d => `
-        <tr>
-          <td>${d.deviceId}</td><td>${d.type}</td><td>${d.room}</td><td>${d.state?.on ? "ON" : "OFF"}</td>
-          <td>
-            <form method="post" action="/api/devices/${d.deviceId}/command" style="display:inline;">
-              <input type="hidden" name="cmd" value="${d.state?.on ? "OFF" : "ON"}" />
-              <button class="btn-gray" type="submit">${d.state?.on ? "Tắt" : "Bật"}</button>
-            </form>
-            <form method="post" action="/api/devices/${d.deviceId}?_method=DELETE" style="display:inline;">
-              <button class="btn-red" type="submit">Xóa</button>
-            </form>
-          </td>
-        </tr>`).join("")}
-    </tbody>
-  </table>
 
-  <h3 style="margin-top:20px;">Thêm thiết bị</h3>
-  <form method="post" action="/api/devices">
-    <input name="deviceId" placeholder="deviceId" required />
-    <input name="type" placeholder="type (light/fan/...)" required />
-    <input name="room" placeholder="room" required />
-    <select name="on">
-      <option value="false">OFF</option>
-      <option value="true">ON</option>
-    </select>
-    <button class="btn-green" type="submit">Thêm</button>
-  </form>
-</section>
-<p class="muted">API điều khiển: POST /api/devices/:id/command { cmd: "ON" | "OFF" }</p>
-`;
-  res.send(layout("SmartHome Dashboard", req.user, body));
+  let body = `
+  <div class="container">
+    <div style="display:flex; gap:20px; flex-wrap:wrap;">
+      <div class="card" style="flex:1; min-width:400px;">
+        <h2>Dữ liệu cảm biến realtime</h2>
+        <canvas id="sensorChart"></canvas>
+      </div>
+      <div class="card" style="flex:1; min-width:400px;">
+        <h2>Trạng thái thiết bị realtime</h2>
+        <canvas id="statusChart"></canvas>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Danh sách thiết bị</h2>
+      <ul>
+        ${devices.map(d=>`
+          <li>
+            ${d.deviceId} - ${d.state.on?"ON":"OFF"}
+            <form method="post" action="/api/devices/${d.deviceId}/command" style="display:inline;">
+              <input type="hidden" name="cmd" value="${d.state.on?"OFF":"ON"}"/>
+              <button class="btn-gray">${d.state.on?"Tắt":"Bật"}</button>
+            </form>
+          </li>`).join("")}
+      </ul>
+    </div>
+
+    ${req.user.role==="admin" ? `
+      <div class="card">
+        <h2>OTA Update</h2>
+        <form method="post" action="/api/ota">
+          <input name="url" placeholder="Firmware URL" required style="width:70%; padding:10px; border:1px solid #ccc; border-radius:6px;"/>
+          <button class="btn-green">Gửi OTA</button>
+        </form>
+        ${lastOtaResult ? `<p><strong>Kết quả OTA:</strong> ${lastOtaResult}</p>` : ""}
+      </div>
+    ` : ""}
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    // Chart cảm biến
+    const ctx1 = document.getElementById('sensorChart').getContext('2d');
+    const sensorChart = new Chart(ctx1, {
+      type: 'line',
+      data: { labels: [], datasets: [
+        { label: 'Nhiệt độ (°C)', data: [], borderColor: 'red', fill: false },
+        { label: 'Độ ẩm (%)', data: [], borderColor: 'blue', fill: false },
+        { label: 'Ánh sáng (lux)', data: [], borderColor: 'orange', fill: false }
+      ]},
+      options: { responsive: true, scales: { y: { beginAtZero: true } } }
+    });
+    async function fetchSensors() {
+      const res = await fetch('/api/sensors');
+      const data = await res.json();
+      if (data && data.ts) {
+        sensorChart.data.labels.push(new Date().toLocaleTimeString());
+        sensorChart.data.datasets[0].data.push(data.nhietdo);
+        sensorChart.data.datasets[1].data.push(data.doam);
+        sensorChart.data.datasets[2].data.push(data.anhSang);
+        if (sensorChart.data.labels.length > 20) {
+          sensorChart.data.labels.shift();
+          sensorChart.data.datasets.forEach(ds => ds.data.shift());
+        }
+        sensorChart.update();
+      }
+    }
+    setInterval(fetchSensors, 5000);
+
+    // Chart trạng thái
+    const ctx2 = document.getElementById('statusChart').getContext('2d');
+    const statusChart = new Chart(ctx2, {
+      type: 'line',
+      data: { labels: [], datasets: [
+        { label: 'Quạt RPM', data: [], borderColor: 'green', fill: false },
+        { label: 'Rèm (%)', data: [], borderColor: 'purple', fill: false },
+        { label: 'Fan Running', data: [], borderColor: 'blue', fill: false },
+        { label: 'Curtain Running', data: [], borderColor: 'orange', fill: false }
+      ]},
+      options: { responsive: true, scales: { y: { beginAtZero: true } } }
+    });
+    async function fetchStatus() {
+      const res = await fetch('/api/status');
+      const data = await res.json();
+      if (data && data.ts) {
+        statusChart.data.labels.push(new Date().toLocaleTimeString());
+        statusChart.data.datasets[0].data.push(data.fanRPM || 0);
+        statusChart.data.datasets[1].data.push(data.curtainPercent || 0);
+        statusChart.data.datasets[2].data.push(data.fanRunning ? 1 : 0);
+        statusChart.data.datasets[3].data.push(data.curtainRunning ? 1 : 0);
+        if (statusChart.data.labels.length > 20) {
+          statusChart.data.labels.shift();
+          statusChart.data.datasets.forEach(ds => ds.data.shift());
+        }
+        statusChart.update();
+      }
+    }
+    setInterval(fetchStatus, 5000);
+  </script>
+  `;
+
+  res.send(layout("Dashboard", req.user, body));
 });
+
+// API devices
+app.post("/api/devices/:id/command", apiAuth, async (req, res) => {
+  const { id } = req.params; const { cmd } = req.body;
+  mqttClient.publish(`truong/home/cmd/${id}`, cmd);
+  const device = await Device.findOne({ deviceId: id });
+  if (device) { device.state.on = cmd === "ON"; await device.save(); }
+  res.redirect("/dashboard");
+});
+
+// OTA API (chỉ admin)
+app.post("/api/ota", apiAuth, async (req, res) => {
+  if (req.user.role !== "admin") return res.status(403).send("Chỉ admin mới được phép OTA");
+  const { url } = req.body;
+  if (!url) return res.status(400).send("Thiếu URL firmware");
+  const msg = JSON.stringify({ url });
+  mqttClient.publish("truong/home/cmd/ota", msg);
+  res.redirect("/dashboard");
+});
+
+// API sensors & status
+app.get("/api/sensors", apiAuth, (req, res) => res.json(lastSensorData || {}));
+app.get("/api/status", apiAuth, (req, res) => res.json(lastStatusData || {}));
 
 // Thresholds page
 app.get("/thresholds", requireAuth, async (req, res) => {
   const thresholds = await Threshold.find().lean();
-  const body = `
-<h1>Ngưỡng cảm biến</h1>
-<section>
-  <table>
-    <thead><tr><th>Sensor</th><th>Comparator</th><th>Value</th><th>Actions</th><th>Enabled</th><th>Hành động</th></tr></thead>
-    <tbody>
-      ${thresholds.map(t => `
-        <tr>
-          <td>${t.sensorType}</td><td>${t.comparator}</td><td>${t.value}</td><td>${(t.actions||[]).join(", ")}</td><td>${t.enabled?"Yes":"No"}</td>
-          <td>
-            <form method="post" action="/api/thresholds/${t._id}?_method=DELETE" style="display:inline;">
-              <button class="btn-red" type="submit">Xóa</button>
-            </form>
-          </td>
-        </tr>`).join("")}
-    </tbody>
-  </table>
-
-  <h3 style="margin-top:20px;">Thêm ngưỡng</h3>
-  <form method="post" action="/api/thresholds">
-    <input name="sensorType" placeholder="sensorType (temp/humidity/...)" required />
-    <input name="comparator" placeholder="comparator (>,<,>=,<=,==)" required />
-    <input name="value" type="number" step="any" placeholder="value" required />
-    <input name="actions" placeholder='actions (vd: turn_fan_on,turn_fan_off)' />
-    <select name="enabled"><option value="true">Enabled</option><option value="false">Disabled</option></select>
-    <button class="btn-green" type="submit">Thêm</button>
-  </form>
-</section>`;
+  const body = `<div class="container"><div class="card"><h2>Thresholds</h2>
+    <ul>${thresholds.map(t=>`<li>${t.sensorType} ${t.comparator} ${t.value} → ${t.actions.join(",")}</li>`).join("")}</ul>
+  </div></div>`;
   res.send(layout("Thresholds", req.user, body));
 });
 
 // Schedules page
 app.get("/schedules", requireAuth, async (req, res) => {
   const schedules = await Schedule.find().lean();
-  const body = `
-<h1>Lịch bật/tắt</h1>
-<section>
-  <table>
-    <thead><tr><th>Device</th><th>Cron</th><th>Action</th><th>Enabled</th><th>Hành động</th></tr></thead>
-    <tbody>
-      ${schedules.map(s => `
-        <tr>
-          <td>${s.deviceId}</td><td>${s.cron}</td><td>${s.action}</td><td>${s.enabled?"Yes":"No"}</td>
-          <td>
-            <form method="post" action="/api/schedules/${s._id}?_method=DELETE" style="display:inline;">
-              <button class="btn-red" type="submit">Xóa</button>
-            </form>
-          </td>
-        </tr>`).join("")}
-    </tbody>
-  </table>
-
-  <h3 style="margin-top:20px;">Thêm lịch</h3>
-  <form method="post" action="/api/schedules">
-    <input name="deviceId" placeholder="deviceId" required />
-    <input name="cron" placeholder='cron (vd: 0 7 * * *)' required />
-    <input name="action" placeholder="action (ON/OFF)" required />
-    <select name="enabled"><option value="true">Enabled</option><option value="false">Disabled</option></select>
-    <button class="btn-green" type="submit">Thêm</button>
-  </form>
-</section>`;
+  const body = `<div class="container"><div class="card"><h2>Schedules</h2>
+    <ul>${schedules.map(s=>`<li>${s.deviceId} ${s.cron} ${s.action}</li>`).join("")}</ul>
+  </div></div>`;
   res.send(layout("Schedules", req.user, body));
 });
 
-// Users page
+// Users page + form tạo user
 app.get("/users", requireAuth, async (req, res) => {
   const users = await User.find().lean();
-  const body = `
-<h1>Quản lý người dùng</h1>
-<section>
-  <table>
-    <thead><tr><th>Username</th><th>Role</th><th>Permissions</th><th>Hành động</th></tr></thead>
-    <tbody>
-      ${users.map(u => `
-        <tr>
-          <td>${u.username}</td><td>${u.role}</td><td>${JSON.stringify(u.permissions||[])}</td>
-          <td>
-            <form method="post" action="/api/users/${u._id}?_method=PATCH" style="display:inline;">
-              <select name="role">
-                <option value="guest" ${u.role==="guest"?"selected":""}>Guest</option>
-                <option value="admin" ${u.role==="admin"?"selected":""}>Admin</option>
-              </select>
-              <button class="btn-green" type="submit">Cập nhật</button>
-            </form>
-            <form method="post" action="/api/users/${u._id}?_method=DELETE" style="display:inline;">
-              <button class="btn-red" type="submit">Xóa</button>
-            </form>
-          </td>
-        </tr>`).join("")}
-    </tbody>
-  </table>
-
-  <h3 style="margin-top:20px;">Thêm người dùng</h3>
-  <form method="post" action="/api/users">
-    <input name="username" placeholder="username" required />
-    <input name="password" placeholder="password" required />
-    <select name="role"><option value="guest">Guest</option><option value="admin">Admin</option></select>
-    <button class="btn-green" type="submit">Thêm</button>
-  </form>
-</section>`;
+  const body = `<div class="container"><div class="card"><h2>Users</h2>
+    <ul>${users.map(u=>`<li>${u.username} (${u.role})</li>`).join("")}</ul>
+    <h3>Thêm người dùng</h3>
+    <form method="post" action="/api/users">
+      <input name="username" placeholder="username" required />
+      <input name="password" type="password" placeholder="password" required />
+      <select name="role"><option value="guest">Guest</option><option value="admin">Admin</option></select>
+      <button class="btn-green" type="submit">Thêm</button>
+    </form>
+  </div></div>`;
   res.send(layout("Users", req.user, body));
 });
 
-// API: Devices
-app.get("/api/devices", apiAuth, async (req, res) => {
-  const role = req.user.role;
-  const devices = await Device.find().lean();
-  if (role === "admin") return res.json(devices);
-  const allowedIds = (req.user.permissions||[])
-    .filter(p => p.resourceType === "device" && p.actions.includes("read"))
-    .map(p => p.resourceId);
-  res.json(devices.filter(d => allowedIds.includes(d.deviceId)));
-});
-app.post("/api/devices", apiAuth, async (req, res) => {
-  const { deviceId, type, room, on } = req.body;
-  const d = await Device.create({ deviceId, type, room, state: { on: on === "true" } });
-  res.redirect("/dashboard");
-});
-app.post("/api/devices/:id/command", apiAuth, async (req, res) => {
-  const { id } = req.params; const { cmd } = req.body;
-  const device = await Device.findOne({ deviceId: id });
-  if (!device) return res.status(404).send("Not found");
-  if (req.user.role !== "admin") {
-    const allowed = (req.user.permissions||[]).find(p => p.resourceId === id && p.actions.includes("write"));
-    if (!allowed) return res.status(403).send("No write permission");
-  }
-  device.state.on = cmd === "ON";
-  await device.save();
-  res.redirect("/dashboard");
-});
-app.delete("/api/devices/:id", apiAuth, async (req, res) => {
-  await Device.findOneAndDelete({ deviceId: req.params.id });
-  res.redirect("/dashboard");
-});
-
-// API: Thresholds
-app.get("/api/thresholds", apiAuth, async (req, res) => {
-  res.json(await Threshold.find().lean());
-});
-app.post("/api/thresholds", apiAuth, async (req, res) => {
-  const actions = (req.body.actions||"").split(",").map(s => s.trim()).filter(Boolean);
-  await Threshold.create({
-    sensorType: req.body.sensorType,
-    comparator: req.body.comparator,
-    value: Number(req.body.value),
-    actions,
-    enabled: req.body.enabled === "true"
-  });
-  res.redirect("/thresholds");
-});
-app.patch("/api/thresholds/:id", apiAuth, async (req, res) => {
-  const actions = (req.body.actions||"").split(",").map(s => s.trim()).filter(Boolean);
-  const t = await Threshold.findByIdAndUpdate(req.params.id, {
-    ...req.body,
-    value: req.body.value ? Number(req.body.value) : undefined,
-    actions
-  }, { new: true });
-  res.json(t);
-});
-app.delete("/api/thresholds/:id", apiAuth, async (req, res) => {
-  await Threshold.findByIdAndDelete(req.params.id);
-  res.redirect("/thresholds");
-});
-
-// API: Schedules
-app.get("/api/schedules", apiAuth, async (req, res) => {
-  res.json(await Schedule.find().lean());
-});
-app.post("/api/schedules", apiAuth, async (req, res) => {
-  await Schedule.create({
-    deviceId: req.body.deviceId,
-    cron: req.body.cron,
-    action: req.body.action,
-    enabled: req.body.enabled === "true"
-  });
-  res.redirect("/schedules");
-});
-app.patch("/api/schedules/:id", apiAuth, async (req, res) => {
-  const s = await Schedule.findByIdAndUpdate(req.params.id, req.body, { new: true });
-  res.json(s);
-});
-app.delete("/api/schedules/:id", apiAuth, async (req, res) => {
-  await Schedule.findByIdAndDelete(req.params.id);
-  res.redirect("/schedules");
-});
-
-// API: Users
-app.get("/api/users", apiAuth, async (req, res) => {
-  const users = await User.find().select("username role permissions").lean();
-  res.json(users);
-});
+// API tạo user mới (kiểm tra trùng username)
 app.post("/api/users", apiAuth, async (req, res) => {
   const { username, password, role } = req.body;
+  const exists = await User.findOne({ username });
+  if (exists) return res.status(400).send("Username đã tồn tại, vui lòng chọn tên khác");
   const hash = await bcrypt.hash(password, 10);
   await User.create({ username, passwordHash: hash, role, permissions: [] });
   res.redirect("/users");
 });
-app.patch("/api/users/:id", apiAuth, async (req, res) => {
-  const u = await User.findByIdAndUpdate(req.params.id, req.body, { new: true });
-  res.redirect("/users");
-});
-app.delete("/api/users/:id", apiAuth, async (req, res) => {
-  await User.findByIdAndDelete(req.params.id);
-  res.redirect("/users");
-});
 
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-
