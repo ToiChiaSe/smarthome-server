@@ -131,11 +131,22 @@ socket.on("thresholds", (th) => {
   document.getElementById("th-device").value = th.device ?? "fan";
   document.getElementById("th-date").value = th.date ?? "";
   document.getElementById("th-time").value = th.time ?? "";
-  document.getElementById("th-tmin").value = th.temperature?.min ?? "";
-  document.getElementById("th-tmax").value = th.temperature?.max ?? "";
-  document.getElementById("th-ttopic").value = th.temperature?.actionTopic ?? "truong/home/cmd/fan";
-  document.getElementById("th-ton").value = th.temperature?.actionOn ?? "ON";
-  document.getElementById("th-toff").value = th.temperature?.actionOff ?? "OFF";
+
+  // ngưỡng nhiệt độ
+  document.getElementById("th-tmin").value = th.thresholds?.temperature?.min ?? "";
+  document.getElementById("th-tmax").value = th.thresholds?.temperature?.max ?? "";
+
+  // ngưỡng độ ẩm
+  document.getElementById("th-hmin").value = th.thresholds?.humidity?.min ?? "";
+  document.getElementById("th-hmax").value = th.thresholds?.humidity?.max ?? "";
+
+  // ngưỡng ánh sáng
+  document.getElementById("th-lmin").value = th.thresholds?.light?.min ?? "";
+  document.getElementById("th-lmax").value = th.thresholds?.light?.max ?? "";
+
+  // action
+  document.getElementById("th-action-max").value = th.actionMax ?? "ON";
+  document.getElementById("th-action-min").value = th.actionMin ?? "OFF";
 });
 
 document.getElementById("thresholdForm").addEventListener("submit", async (e) => {
@@ -145,14 +156,24 @@ document.getElementById("thresholdForm").addEventListener("submit", async (e) =>
     device: document.getElementById("th-device").value,
     date: document.getElementById("th-date").value,
     time: document.getElementById("th-time").value,
-    temperature: {
-      min: parseFloat(document.getElementById("th-tmin").value),
-      max: parseFloat(document.getElementById("th-tmax").value),
-      actionTopic: document.getElementById("th-ttopic").value,
-      actionOn: document.getElementById("th-ton").value,
-      actionOff: document.getElementById("th-toff").value
-    }
+    thresholds: {
+      temperature: {
+        min: parseFloat(document.getElementById("th-tmin").value) || null,
+        max: parseFloat(document.getElementById("th-tmax").value) || null
+      },
+      humidity: {
+        min: parseFloat(document.getElementById("th-hmin").value) || null,
+        max: parseFloat(document.getElementById("th-hmax").value) || null
+      },
+      light: {
+        min: parseFloat(document.getElementById("th-lmin").value) || null,
+        max: parseFloat(document.getElementById("th-lmax").value) || null
+      }
+    },
+    actionMax: document.getElementById("th-action-max").value,
+    actionMin: document.getElementById("th-action-min").value
   };
+
   const res = await fetch("/api/thresholds", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -161,7 +182,6 @@ document.getElementById("thresholdForm").addEventListener("submit", async (e) =>
   const r = await res.json();
   if (r.ok) alert("Đã lưu auto mode");
 });
-
 // ====== Schedules ======
 function renderSchedules(items) {
   const container = document.getElementById("scheduleList");
