@@ -221,16 +221,15 @@ app.post("/api/cmd", requireAuth, (req, res) => {
 });
 
 app.get("/api/thresholds", requireAuth, async (req, res) => {
-  const th = await Threshold.findOne().lean();
-  res.json(th || {});
+  const ths = await Threshold.find().lean();
+  res.json(ths);
 });
+
 app.post("/api/thresholds", requireAdmin, async (req, res) => {
-  const payload = req.body; // { enabled, device, date, timeStart, timeEnd, thresholds, actionMax, actionMin }
-  let th = await Threshold.findOne();
-  if (!th) th = new Threshold(payload);
-  else Object.assign(th, payload);
+  const payload = req.body;
+  const th = new Threshold(payload); // tạo mới mỗi lần submit
   await th.save();
-  io.emit("thresholds", th.toObject());
+  io.emit("thresholds", await Threshold.find().lean()); // gửi toàn bộ danh sách
   res.json({ ok: true });
 });
 
