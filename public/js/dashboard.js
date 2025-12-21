@@ -1,5 +1,7 @@
 const socket = io();
+let deviceState = {}; // lưu trạng thái hiện tại
 
+// ====== Cảm biến realtime ======
 socket.on("sensors", (data) => {
   const s = Array.isArray(data) ? data[0] : data;
   if (!s) return;
@@ -8,27 +10,80 @@ socket.on("sensors", (data) => {
   document.getElementById("light").textContent= `${s.light} lux`;
 });
 
+// ====== Trạng thái thiết bị realtime ======
 socket.on("deviceStatus", (st) => {
+  deviceState = st;
+
   document.getElementById("led1").textContent = st.led1 ? "ON" : "OFF";
   document.getElementById("led2").textContent = st.led2 ? "ON" : "OFF";
   document.getElementById("led3").textContent = st.led3 ? "ON" : "OFF";
   document.getElementById("led4").textContent = st.led4 ? "ON" : "OFF";
   document.getElementById("fan").textContent  = st.fan ? "ON" : "OFF";
-  document.getElementById("curtainMode").textContent = st.curtainMode ?? "--";
+
+  // curtainMode: 0=STOP, 1=CLOSE, 2=OPEN
+  let curtainText = "--";
+  if (st.curtainMode === 0) curtainText = "STOP";
+  else if (st.curtainMode === 1) curtainText = "CLOSE";
+  else if (st.curtainMode === 2) curtainText = "OPEN";
+  document.getElementById("curtainMode").textContent = curtainText;
+
+  // cập nhật màu nút toggle
+  updateButton("btn-led1", st.led1);
+  updateButton("btn-led2", st.led2);
+  updateButton("btn-led3", st.led3);
+  updateButton("btn-led4", st.led4);
+  updateButton("btn-fan",  st.fan);
 });
 
+// ====== Cập nhật màu nút toggle ======
+function updateButton(id, state) {
+  const btn = document.getElementById(id);
+  if (!btn) return;
+  if (state) {
+    btn.classList.remove("btn-outline-danger","btn-outline-primary");
+    btn.classList.add("btn-success");
+  } else {
+    btn.classList.remove("btn-success");
+    btn.classList.add("btn-outline-danger");
+  }
+}
+
+// ====== Toggle LED/Fan ======
+async function toggleDevice(topic, field) {
+  const current = deviceState[field];
+  const cmd = current ? "OFF" : "ON";
+  await sendCmd(topic, cmd);
+}
+
+// ====== Rèm: 3 nút riêng OPEN/CLOSE/STOP ======
+async function sendCurtain(cmd) {
+  await sendCmd("truong/home/cmd/curtain", cmd);
+}
+
+// ====== Gửi lệnh tới server ======
+async function sendCmd(topic, cmd) {
+  const res = await fetch("/api/cmd", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ topic, cmd })
+  });
+  const r = await res.json();
+  if (!r.ok) alert("Gửi lệnh thất bại");
+}
+
+// ====== Auto mode log ======
 socket.on("autoAction", (info) => {
   const div = document.getElementById("auto-log");
-  const line = `[${new Date().toLocaleTimeString()}] Auto: ${info.reason} -> ${info.action} (${info.value})`;
-  div.textContent = line;
+  div.textContent = `[${new Date().toLocaleTimeString()}] Auto: ${info.reason} -> ${info.action} (${info.value})`;
 });
 
+// ====== Schedule log ======
 socket.on("scheduleAction", (info) => {
   const div = document.getElementById("auto-log");
-  const line = `[${new Date().toLocaleTimeString()}] Schedule "${info.name}" ${info.time} -> ${info.cmd}`;
-  div.textContent = line;
+  div.textContent = `[${new Date().toLocaleTimeString()}] Schedule "${info.name}" ${info.time} -> ${info.cmd}`;
 });
 
+// ====== Biểu đồ cảm biến ======
 const ctx = document.getElementById("sensorChart").getContext("2d");
 const chartData = {
   labels: [],
@@ -72,16 +127,7 @@ socket.on("sensors", (data) => {
   sensorChart.update();
 });
 
-async function sendCmd(topic, cmd) {
-  const res = await fetch("/api/cmd", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ topic, cmd })
-  });
-  const r = await res.json();
-  if (!r.ok) alert("Gửi lệnh thất bại");
-}
-
+// ====== Thresholds form ======
 socket.on("thresholds", (th) => {
   document.getElementById("th-enabled").checked = !!th.enabled;
   document.getElementById("th-tmin").value = th.temperature?.min ?? "";
@@ -111,6 +157,7 @@ document.getElementById("thresholdForm").addEventListener("submit", async (e) =>
   if (r.ok) alert("Đã lưu auto mode");
 });
 
+// ====== Schedules ======
 function renderSchedules(items) {
   const container = document.getElementById("scheduleList");
   container.innerHTML = "";
@@ -138,7 +185,7 @@ document.getElementById("scheduleForm").addEventListener("submit", async (e) => 
     cmd: document.getElementById("sc-cmd").value,
     enabled: true
   };
-  const res = await fetch("/api/schedules", {
+const res = await fetch("/api/schedules", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload)
@@ -146,11 +193,15 @@ document.getElementById("scheduleForm").addEventListener("submit", async (e) => 
   const r = await res.json();
   if (!r.ok) alert("Thêm lịch thất bại");
 });
+
+// Toggle bật/tắt lịch hẹn
 async function toggleSchedule(id) {
   const res = await fetch(`/api/schedules/${id}/toggle`, { method: "POST" });
   const r = await res.json();
   if (!r.ok) alert("Toggle lịch thất bại");
 }
+
+// Xóa lịch hẹn
 async function deleteSchedule(id) {
   const res = await fetch(`/api/schedules/${id}`, { method: "DELETE" });
   const r = await res.json();
