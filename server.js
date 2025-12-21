@@ -44,9 +44,16 @@ mongoose.connect(MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
     if (!existingTh) {
       await new Threshold({
         enabled: false,
-        temperature: { min: 18, max: 30, actionTopic: "truong/home/cmd/fan", actionOn: "ON", actionOff: "OFF" },
-        humidity: { min: 40, max: 80 },
-        light: { min: 50, max: 800 }
+        device: "fan",
+        date: null,
+        time: null,
+        thresholds: {
+          temperature: { min: 18, max: 30 },
+          humidity: { min: 40, max: 80 },
+          light: { min: 50, max: 800 }
+        },
+        actionMax: "OFF",
+        actionMin: "ON"
       }).save();
       console.log("Seeded default thresholds");
     }
@@ -59,6 +66,19 @@ mqttClient.on("connect", () => {
   mqttClient.subscribe("truong/home/cambien");
   mqttClient.subscribe("truong/home/status");
 });
+
+// Helper: ánh xạ thiết bị sang topic
+function getTopicByDevice(device) {
+  switch (device) {
+    case "fan": return "truong/home/cmd/fan";
+    case "led1": return "truong/home/cmd/led1";
+    case "led2": return "truong/home/cmd/led2";
+    case "led3": return "truong/home/cmd/led3";
+    case "led4": return "truong/home/cmd/led4";
+    case "curtain": return "truong/home/cmd/curtain";
+    default: return null;
+  }
+}
 
 function requireAuth(req, res, next) {
   if (!req.session.user) return res.status(401).json({ error: "Unauthorized" });
@@ -87,14 +107,42 @@ mqttClient.on("message", async (topic, message) => {
 
       const th = await Threshold.findOne();
       if (th?.enabled) {
-        const t = data.temperature;
-        if (typeof t === "number" && th.temperature?.actionTopic) {
-          if (t > th.temperature.max) {
-            mqttClient.publish(th.temperature.actionTopic, th.temperature.actionOn || "ON");
-            io.emit("autoAction", { reason: "temp_high", value: t, action: th.temperature.actionOn || "ON" });
-          } else if (t < th.temperature.min) {
-            mqttClient.publish(th.temperature.actionTopic, th.temperature.actionOff || "OFF");
-            io.emit("autoAction", { reason: "temp_low", value: t, action: th.temperature.actionOff || "OFF" });
+        // kiểm tra thời gian nếu có
+        const now = new Date();
+        const hh = String(now.getHours()).padStart(2, "0");
+        const mm = String(now.getMinutes()).padStart(2, "0");
+        const today = now.toISOString().slice(0, 10);
+        let timeOk = true;
+        if (th.time) timeOk = (`${hh}:${mm}` === th.time);
+        if (th.date) timeOk = timeOk && (today === th.date);
+
+        if (timeOk) {
+          const checks = [];
+          const pushCheck = (sensorName, value, bounds) => {
+            if (typeof value !== "number" || !bounds) return;
+            const { min, max } = bounds;
+            if (typeof max === "number" && value > max) {
+              checks.push({ sensorName, trigger: "max", value });
+            } else if (typeof min === "number" && value < min) {
+              checks.push({ sensorName, trigger: "min", value });
+            }
+          };
+          pushCheck("temperature", data.temperature, th.thresholds?.temperature);
+          pushCheck("humidity", data.humidity, th.thresholds?.humidity);
+          pushCheck("light", data.light, th.thresholds?.light);
+
+          if (checks.length > 0) {
+            const hasMax = checks.some(c => c.trigger === "max");
+            const action = hasMax ? th.actionMax : th.actionMin;
+            const topicOut = getTopicByDevice(th.device);
+            if (topicOut && action) {
+              mqttClient.publish(topicOut, action);
+              io.emit("autoAction", {
+                reason: hasMax ? "threshold_max" : "threshold_min",
+                value: checks.map(c => `${c.sensorName}:${c.value}`).join(","),
+                action
+              });
+            }
           }
         }
       }
@@ -173,12 +221,24 @@ app.get("/api/schedules", requireAuth, async (req, res) => {
   res.json(items);
 });
 app.post("/api/schedules", requireAdmin, async (req, res) => {
-  const { name, time, topic, cmd, enabled } = req.body;
-  const sc = new Schedule({ name, time, topic, cmd, enabled: !!enabled });
+  const { name, date, time, device, cmd, enabled } = req.body;
+  const topic = getTopicByDevice(device);
+  if (!topic) return res.status(400).json({ error: "Invalid device" });
+
+  const sc = new Schedule({
+    name,
+    date: date || null,
+    time,
+    device,
+    topic,
+    cmd,
+    enabled: !!enabled
+  });
   await sc.save();
   io.emit("schedules", await Schedule.find().lean());
   res.json({ ok: true });
 });
+
 app.post("/api/schedules/:id/toggle", requireAdmin, async (req, res) => {
   const sc = await Schedule.findById(req.params.id);
   if (!sc) return res.status(404).json({ error: "Not found" });
@@ -187,6 +247,7 @@ app.post("/api/schedules/:id/toggle", requireAdmin, async (req, res) => {
   io.emit("schedules", await Schedule.find().lean());
   res.json({ ok: true });
 });
+
 app.delete("/api/schedules/:id", requireAdmin, async (req, res) => {
   await Schedule.findByIdAndDelete(req.params.id);
   io.emit("schedules", await Schedule.find().lean());
@@ -198,16 +259,27 @@ app.get("/", (req, res) => {
   else res.redirect("/login");
 });
 
+// ====== Schedule runner ======
 setInterval(async () => {
   const now = new Date();
   const hh = String(now.getHours()).padStart(2, "0");
   const mm = String(now.getMinutes()).padStart(2, "0");
   const current = `${hh}:${mm}`;
+  const today = now.toISOString().slice(0, 10);
+
   const items = await Schedule.find({ enabled: true }).lean();
-  items.filter(i => i.time === current).forEach(i => {
-    mqttClient.publish(i.topic, i.cmd);
-    io.emit("scheduleAction", { name: i.name, time: i.time, cmd: i.cmd });
-  });
+  items
+    .filter(i => i.time === current)
+    .filter(i => !i.date || i.date === today)
+    .forEach(i => {
+      mqttClient.publish(i.topic, i.cmd);
+      io.emit("scheduleAction", {
+        name: i.name,
+        date: i.date || null,
+        time: i.time,
+        cmd: i.cmd
+      });
+    });
 }, 10 * 1000);
 
 const PORT = process.env.PORT || 3000;
