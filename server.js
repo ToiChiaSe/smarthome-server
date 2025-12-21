@@ -3,7 +3,6 @@ const mongoose = require("mongoose");
 const mqtt = require("mqtt");
 const { Server } = require("socket.io");
 const http = require("http");
-const bcrypt = require("bcrypt");
 const session = require("express-session");
 const MongoStore = require("connect-mongo");
 
@@ -21,7 +20,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(express.static("public"));
 
-// Session lưu trong MongoDB thay vì MemoryStore
+// Session lưu trong MongoDB
 app.use(session({
   secret: "secret-key",
   resave: false,
@@ -37,15 +36,14 @@ app.use(session({
 const MONGO_URI = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/smarthome";
 mongoose.connect(MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
   .then(async () => {
-    console.log("MongoDB connected");
+    console.log("MongoDB connected to:", MONGO_URI);
 
     // Tạo tài khoản mặc định nếu chưa có
     const adminUser = await User.findOne({ username: "admin" });
     if (!adminUser) {
-      const hashedPassword = await bcrypt.hash("123456", 10);
       const newAdmin = new User({
         username: "admin",
-        password: hashedPassword,
+        password: "123456", // hook trong model sẽ tự hash
         role: "admin"
       });
       await newAdmin.save();
@@ -76,7 +74,12 @@ app.get("/login", (req, res) => {
 app.post("/login", async (req, res) => {
   const { username, password } = req.body;
   const user = await User.findOne({ username });
-  if (user && await bcrypt.compare(password, user.password)) {
+  if (!user) {
+    return res.send("Sai tài khoản hoặc mật khẩu");
+  }
+
+  const match = await user.comparePassword(password); // dùng method trong model
+  if (match) {
     req.session.user = { id: user._id, role: user.role };
     res.redirect("/dashboard.html");
   } else {
