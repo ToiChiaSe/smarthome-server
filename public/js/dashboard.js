@@ -9,14 +9,14 @@ socket.on("sensors", (data) => {
   document.getElementById("hum").textContent  = `${s.humidity} %`;
   document.getElementById("light").textContent= `${s.light} lux`;
   // thêm hiển thị encoder
-if (s.fanRPS !== undefined) {
-  document.getElementById("fanRPS").textContent = s.fanRPS.toFixed(2) + " vòng/s";
+if (s.fanRPM !== undefined) {
+  document.getElementById("fanRPM").textContent = s.fanRPM.toFixed(1) + " RPM";
 }
-  if (s.curtainPercent !== undefined) {
-    const bar = document.getElementById("curtainPercent");
-    bar.style.width = s.curtainPercent.toFixed(0) + "%";
-    bar.textContent = s.curtainPercent.toFixed(0) + "%";
-  }
+if (s.curtainPercent !== undefined) {
+  const bar = document.getElementById("curtainPercent");
+  bar.style.width = s.curtainPercent.toFixed(0) + "%";
+  bar.textContent = s.curtainPercent.toFixed(0) + "%";
+}
 });
 
 // ====== Trạng thái thiết bị realtime ======
