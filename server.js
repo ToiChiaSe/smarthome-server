@@ -214,11 +214,20 @@ app.post("/login", async (req, res) => {
 });
 app.post("/logout", (req, res) => req.session.destroy(() => res.redirect("/login")));
 
-app.post("/api/cmd", requireAuth, (req, res) => {
+app.post("/api/cmd", requireAuth, async (req, res) => {
   const { topic, cmd } = req.body;
+  const user = await User.findById(req.session.user.id).lean();
+
+  // kiểm tra quyền thiết bị
+  const device = topic.split("/").pop(); // ví dụ: fan, led1...
+  if (user.role !== "admin" && (!user.allowedDevices || !user.allowedDevices.includes(device))) {
+    return res.status(403).json({ error: "Not allowed to control this device" });
+  }
+
   mqttClient.publish(topic, cmd);
   res.json({ ok: true });
 });
+
 
 // Thresholds API
 app.get("/api/thresholds", requireAuth, async (req, res) => {
