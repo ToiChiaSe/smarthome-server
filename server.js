@@ -278,6 +278,50 @@ app.get("/", (req, res) => {
   if (req.session.user) res.redirect("/dashboard.html");
   else res.redirect("/login");
 });
+// ====== User management API ======
+
+// Lấy danh sách người dùng (admin mới được xem)
+app.get("/api/users", requireAdmin, async (req, res) => {
+  const users = await User.find().select("-password").lean();
+  res.json(users);
+});
+
+// Thêm người dùng mới
+app.post("/api/users", requireAdmin, async (req, res) => {
+  const { username, password, role, allowedDevices } = req.body;
+  const existing = await User.findOne({ username });
+  if (existing) return res.status(400).json({ error: "User already exists" });
+
+  const u = new User({
+    username,
+    password,
+    role: role || "user",
+    allowedDevices: allowedDevices || [] // danh sách thiết bị được phép điều khiển
+  });
+  await u.save();
+  io.emit("users", await User.find().select("-password").lean());
+  res.json({ ok: true });
+});
+
+// Sửa thông tin người dùng
+app.put("/api/users/:id", requireAdmin, async (req, res) => {
+  const { role, allowedDevices } = req.body;
+  const u = await User.findById(req.params.id);
+  if (!u) return res.status(404).json({ error: "Not found" });
+
+  if (role) u.role = role;
+  if (allowedDevices) u.allowedDevices = allowedDevices;
+  await u.save();
+  io.emit("users", await User.find().select("-password").lean());
+  res.json({ ok: true });
+});
+
+// Xóa người dùng
+app.delete("/api/users/:id", requireAdmin, async (req, res) => {
+  await User.findByIdAndDelete(req.params.id);
+  io.emit("users", await User.find().select("-password").lean());
+  res.json({ ok: true });
+});
 // ====== Schedule runner ======
 setInterval(async () => {
   const now = new Date();
