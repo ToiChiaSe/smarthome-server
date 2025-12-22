@@ -62,11 +62,11 @@ async function toggleDevice(topic, field) {
   const cmd = current ? "OFF" : "ON";
   await sendCmd(topic, cmd);
 }
-
-// ====== Rèm: 3 nút riêng OPEN/CLOSE/STOP ======
-async function sendCurtain(cmd) {
-  await sendCmd("truong/home/cmd/curtain", cmd);
+// ====== Rèm: 1 nút duy nhất TOGGLE ======
+async function toggleCurtain() {
+  await sendCmd("truong/home/cmd/curtain", "CURTAIN_TOGGLE");
 }
+
 
 // ====== Gửi lệnh tới server ======
 async function sendCmd(topic, cmd) {
