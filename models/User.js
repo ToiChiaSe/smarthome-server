@@ -1,20 +1,21 @@
 const mongoose = require("mongoose");
-const bcrypt = require("bcryptjs");
+const bcrypt = require("bcrypt");
 
 const UserSchema = new mongoose.Schema({
-  username: { type: String, unique: true, required: true },
-  password: { type: String, required: true },
-  role: { type: String, enum: ["admin", "user"], default: "user" }
-}, { versionKey: false });
+  username: String,
+  password: String,
+  role: { type: String, enum: ["admin", "user"], default: "user" },
+  allowedDevices: [String] // danh sách thiết bị được phép điều khiển
+});
 
 UserSchema.pre("save", async function (next) {
   if (!this.isModified("password")) return next();
-  const salt = await bcrypt.genSalt(10);
-  this.password = await bcrypt.hash(this.password, salt);
+  this.password = await bcrypt.hash(this.password, 10);
   next();
 });
-UserSchema.methods.comparePassword = function (plain) {
-  return bcrypt.compare(plain, this.password);
+
+UserSchema.methods.comparePassword = function (candidate) {
+  return bcrypt.compare(candidate, this.password);
 };
 
 module.exports = mongoose.model("User", UserSchema);
