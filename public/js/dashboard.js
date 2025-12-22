@@ -94,6 +94,7 @@ const sensorChart = new Chart(ctx, {
   data: chartData,
   options: {
     responsive: true,
+    maintainAspectRatio: false,
     animation: false,
     plugins: { legend: { position: "bottom" } },
     scales: {
