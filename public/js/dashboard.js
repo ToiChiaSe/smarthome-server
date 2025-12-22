@@ -8,11 +8,10 @@ socket.on("sensors", (data) => {
   document.getElementById("temp").textContent = `${s.temperature} °C`;
   document.getElementById("hum").textContent  = `${s.humidity} %`;
   document.getElementById("light").textContent= `${s.light} lux`;
-
   // thêm hiển thị encoder
-  if (s.fanRPM !== undefined) {
-    document.getElementById("fanRPM").textContent = s.fanRPM.toFixed(1) + " RPM";
-  }
+if (s.fanRPS !== undefined) {
+  document.getElementById("fanRPS").textContent = s.fanRPS.toFixed(2) + " vòng/s";
+}
   if (s.curtainPercent !== undefined) {
     const bar = document.getElementById("curtainPercent");
     bar.style.width = s.curtainPercent.toFixed(0) + "%";
