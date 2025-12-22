@@ -1,6 +1,5 @@
 const socket = io();
 let deviceState = {}; // lưu trạng thái hiện tại
-
 // ====== Cảm biến realtime ======
 socket.on("sensors", (data) => {
   const s = Array.isArray(data) ? data[0] : data;
@@ -8,7 +7,6 @@ socket.on("sensors", (data) => {
   document.getElementById("temp").textContent = `${s.temperature} °C`;
   document.getElementById("hum").textContent  = `${s.humidity} %`;
   document.getElementById("light").textContent= `${s.light} lux`;
-
   if (s.fanRPS !== undefined) {
     document.getElementById("fanRPS").textContent = s.fanRPS.toFixed(2) + " vòng/s";
   }
@@ -26,17 +24,20 @@ socket.on("deviceStatus", (st) => {
   document.getElementById("led3").textContent = st.led3 ? "ON" : "OFF";
   document.getElementById("led4").textContent = st.led4 ? "ON" : "OFF";
   document.getElementById("fan").textContent  = st.fan ? "ON" : "OFF";
-
   let curtainText = "--";
   if (st.curtainMode === 0) curtainText = "STOP (sau đóng)";
   else if (st.curtainMode === 1) curtainText = "OPEN";
   else if (st.curtainMode === 2) curtainText = "STOP (sau mở)";
   else if (st.curtainMode === 3) curtainText = "CLOSE";
   document.getElementById("curtainMode").textContent = curtainText;
-
+  // cập nhật màu nút toggle cho tất cả thiết bị
+  updateButton("btn-led1", st.led1);
+  updateButton("btn-led2", st.led2);
+  updateButton("btn-led3", st.led3);
+  updateButton("btn-led4", st.led4);
+  updateButton("btn-fan",  st.fan);
   updateButton("btn-curtain", st.curtainMode !== 0 && st.curtainMode !== 2);
 });
-
 // ====== Cập nhật màu nút toggle ======
 function updateButton(id, state) {
   const btn = document.getElementById(id);
@@ -49,19 +50,16 @@ function updateButton(id, state) {
     btn.classList.add("btn-outline-danger");
   }
 }
-
 // ====== Toggle LED/Fan ======
 async function toggleDevice(topic, field) {
   const current = deviceState[field];
   const cmd = current ? "OFF" : "ON";
   await sendCmd(topic, cmd);
 }
-
 // ====== Rèm: 1 nút duy nhất TOGGLE ======
 async function toggleCurtain() {
   await sendCmd("truong/home/cmd/curtain", "CURTAIN_TOGGLE");
 }
-
 // ====== Gửi lệnh tới server ======
 async function sendCmd(topic, cmd) {
   const res = await fetch("/api/cmd", {
@@ -77,7 +75,6 @@ socket.on("autoAction", (info) => {
   const div = document.getElementById("auto-log");
   div.textContent = `[${new Date().toLocaleTimeString()}] Auto: ${info.reason} -> ${info.action} (${info.value})`;
 });
-
 // ====== Log schedule ======
 socket.on("scheduleAction", (info) => {
   const div = document.getElementById("schedule-log");
@@ -105,7 +102,6 @@ const sensorChart = new Chart(ctx, {
     }
   }
 });
-
 socket.on("sensorsHistory", (history) => {
   chartData.labels = history.map(s => new Date(s.timestamp).toLocaleTimeString());
   chartData.datasets[0].data = history.map(s => s.temperature);
@@ -113,7 +109,6 @@ socket.on("sensorsHistory", (history) => {
   chartData.datasets[2].data = history.map(s => s.light ?? 0);
   sensorChart.update();
 });
-
 socket.on("sensors", (data) => {
   const s = Array.isArray(data) ? data[0] : data;
   if (!s) return;
@@ -134,7 +129,6 @@ function updateActionOptions() {
   const minSel = document.getElementById("th-action-min");
   maxSel.innerHTML = "";
   minSel.innerHTML = "";
-
   if (device === "curtain") {
     ["OPEN","CLOSE","STOP"].forEach(opt => {
       maxSel.innerHTML += `<option value="${opt}">${opt}</option>`;
@@ -148,7 +142,6 @@ function updateActionOptions() {
   }
 }
 updateActionOptions();
-
 // Submit form auto mode
 document.getElementById("thresholdForm").addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -184,7 +177,6 @@ document.getElementById("thresholdForm").addEventListener("submit", async (e) =>
   const r = await res.json();
   if (!r.ok) alert("Thêm auto mode thất bại");
 });
-
 // Render danh sách auto mode vào bảng
 socket.on("thresholds", (list) => {
   const tbody = document.querySelector("#thresholdsTable tbody");
@@ -205,21 +197,18 @@ socket.on("thresholds", (list) => {
     tbody.appendChild(tr);
   });
 });
-
 // Các hàm thao tác auto mode
 async function toggleThreshold(id) {
   const res = await fetch(`/api/thresholds/${id}/toggle`, { method: "POST" });
   const r = await res.json();
   if (!r.ok) alert("Toggle auto mode thất bại");
 }
-
 async function deleteThreshold(id) {
   const res = await fetch(`/api/thresholds/${id}`, { method: "DELETE" });
   const r = await res.json();
   if (!r.ok) alert("Xóa auto mode thất bại");
 }
 // ====== Lịch hẹn ======
-
 // Submit form lịch hẹn
 document.getElementById("scheduleForm").addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -231,7 +220,6 @@ document.getElementById("scheduleForm").addEventListener("submit", async (e) => 
     cmd: document.getElementById("sc-cmd").value,
     enabled: true
   };
-
   const res = await fetch("/api/schedules", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -240,7 +228,6 @@ document.getElementById("scheduleForm").addEventListener("submit", async (e) => 
   const r = await res.json();
   if (!r.ok) alert("Thêm lịch thất bại");
 });
-
 // Render danh sách lịch hẹn vào bảng
 socket.on("schedules", (list) => {
   const tbody = document.querySelector("#schedulesTable tbody");
@@ -263,38 +250,32 @@ socket.on("schedules", (list) => {
     tbody.appendChild(tr);
   });
 });
-
 // Các hàm thao tác lịch hẹn
 async function toggleSchedule(id) {
   const res = await fetch(`/api/schedules/${id}/toggle`, { method: "POST" });
   const r = await res.json();
   if (!r.ok) alert("Toggle lịch thất bại");
 }
-
 async function deleteSchedule(id) {
   const res = await fetch(`/api/schedules/${id}`, { method: "DELETE" });
   const r = await res.json();
   if (!r.ok) alert("Xóa lịch thất bại");
 }
-
 async function editSchedule(id) {
   // Tạm thời chỉ alert, bạn có thể mở modal hoặc điền lại form với dữ liệu cũ
   alert("Chức năng sửa schedule: lấy dữ liệu từ server và điền lại form");
 }
-
 // ====== Cập nhật options CMD theo thiết bị ======
 function updateScheduleCmdOptions() {
   const device = document.getElementById("sc-device").value;
   const cmdSelect = document.getElementById("sc-cmd");
   cmdSelect.innerHTML = "";
-
   let options = [];
   if (device.startsWith("led") || device === "fan") {
     options = ["ON", "OFF"];
   } else if (device === "curtain") {
     options = ["OPEN", "CLOSE", "STOP"];
   }
-
   options.forEach(opt => {
     const o = document.createElement("option");
     o.value = opt;
@@ -302,9 +283,7 @@ function updateScheduleCmdOptions() {
     cmdSelect.appendChild(o);
   });
 }
-
 // Gọi khi chọn thiết bị
 document.getElementById("sc-device").addEventListener("change", updateScheduleCmdOptions);
-
 // Khởi tạo khi load trang
 document.addEventListener("DOMContentLoaded", updateScheduleCmdOptions);
