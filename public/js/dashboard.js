@@ -74,17 +74,17 @@ async function sendCmd(topic, cmd) {
   const r = await res.json();
   if (!r.ok) alert("Gửi lệnh thất bại");
 }
-
-// ====== Log auto & schedule ======
+// ====== Log auto ======
 socket.on("autoAction", (info) => {
   const div = document.getElementById("auto-log");
   div.textContent = `[${new Date().toLocaleTimeString()}] Auto: ${info.reason} -> ${info.action} (${info.value})`;
 });
-
+// ====== Log schedule ======
 socket.on("scheduleAction", (info) => {
-  const div = document.getElementById("auto-log");
+  const div = document.getElementById("schedule-log");
   div.textContent = `[${new Date().toLocaleTimeString()}] Schedule "${info.name}" ${info.date} ${info.time} -> ${info.cmd}`;
 });
+
 // ====== Biểu đồ cảm biến ======
 const ctx = document.getElementById("sensorChart").getContext("2d");
 const chartData = {
