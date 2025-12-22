@@ -235,13 +235,20 @@ app.get("/api/thresholds", requireAuth, async (req, res) => {
   res.json(ths);
 });
 
-app.post("/api/thresholds", requireAdmin, async (req, res) => {
+app.post("/api/thresholds", requireAuth, async (req, res) => {
   const payload = req.body;
+  const user = await User.findById(req.session.user.id).lean();
+
+  if (user.role !== "admin" && (!user.allowedDevices || !user.allowedDevices.includes(payload.device))) {
+    return res.status(403).json({ error: "Not allowed to set auto mode for this device" });
+  }
+
   const th = new Threshold(payload);
   await th.save();
   io.emit("thresholds", await Threshold.find().lean());
   res.json({ ok: true });
 });
+
 
 // Schedules API
 app.get("/api/schedules", requireAuth, async (req, res) => {
