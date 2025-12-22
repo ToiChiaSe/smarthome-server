@@ -347,3 +347,18 @@ async function editUser(id, role, allowedDevices) {
 document.getElementById("sc-device").addEventListener("change", updateScheduleCmdOptions);
 // Khởi tạo khi load trang
 document.addEventListener("DOMContentLoaded", updateScheduleCmdOptions);
+// Sau khi load trang, ẩn phần quản lý người dùng nếu không phải admin
+document.addEventListener("DOMContentLoaded", async () => {
+  try {
+    const res = await fetch("/api/me"); // bạn tạo thêm API /api/me để trả về thông tin user hiện tại
+    if (res.ok) {
+      const user = await res.json();
+      if (user.role !== "admin") {
+        document.getElementById("usersTable").closest(".card").style.display = "none";
+        document.getElementById("addUserForm").style.display = "none";
+      }
+    }
+  } catch (err) {
+    console.error("Không lấy được thông tin user:", err);
+  }
+});
