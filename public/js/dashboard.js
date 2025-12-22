@@ -37,11 +37,7 @@ else if (st.curtainMode === 3) curtainText = "CLOSE";
 document.getElementById("curtainMode").textContent = curtainText;
 
   // cập nhật màu nút toggle
-  updateButton("btn-led1", st.led1);
-  updateButton("btn-led2", st.led2);
-  updateButton("btn-led3", st.led3);
-  updateButton("btn-led4", st.led4);
-  updateButton("btn-fan",  st.fan);
+  updateButton("btn-curtain", st.curtainMode !== 0 && st.curtainMode !== 2);
 });
 // ====== Cập nhật màu nút toggle ======
 function updateButton(id, state) {
