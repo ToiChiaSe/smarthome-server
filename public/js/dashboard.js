@@ -258,6 +258,33 @@ async function deleteSchedule(id) {
   const r = await res.json();
   if (!r.ok) alert("Xóa lịch thất bại");
 }
+function updateScheduleCmdOptions() {
+  const device = document.getElementById("sc-device").value;
+  const cmdSelect = document.getElementById("sc-cmd");
+
+  cmdSelect.innerHTML = ""; // xoá options cũ
+
+  let options = [];
+  if (device.startsWith("led") || device === "fan") {
+    options = ["ON", "OFF"];
+  } else if (device === "curtain") {
+    options = ["OPEN", "CLOSE", "STOP"];
+  }
+
+  options.forEach(opt => {
+    const o = document.createElement("option");
+    o.value = opt;
+    o.textContent = opt;
+    cmdSelect.appendChild(o);
+  });
+}
+
+// gọi khi chọn thiết bị
+document.getElementById("sc-device").addEventListener("change", updateScheduleCmdOptions);
+
+// gọi 1 lần khi load trang để khởi tạo
+document.addEventListener("DOMContentLoaded", updateScheduleCmdOptions);
+
 // Nhận danh sách user từ server
 socket.on("users", (users) => {
   const tbody = document.querySelector("#usersTable tbody");
