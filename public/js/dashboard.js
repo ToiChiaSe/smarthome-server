@@ -344,4 +344,69 @@ async function editUser(id, role, allowedDevices) {
     })
   });
 }
+// Nhận danh sách auto mode từ server
+socket.on("thresholds", (list) => {
+  const tbody = document.querySelector("#thresholdsTable tbody");
+  tbody.innerHTML = "";
+  list.forEach(th => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${th.device}</td>
+      <td>${th.date || "--"}</td>
+      <td>${th.timeStart || "--"}</td>
+      <td>${th.timeEnd || "--"}</td>
+      <td>${th.enabled ? "ON" : "OFF"}</td>
+      <td>
+        <button class="btn btn-sm btn-warning" onclick="toggleThreshold('${th._id}')">Bật/Tắt</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteThreshold('${th._id}')">Xóa</button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+});
+
+// Nhận danh sách lịch hẹn từ server
+socket.on("schedules", (list) => {
+  const tbody = document.querySelector("#schedulesTable tbody");
+  tbody.innerHTML = "";
+  list.forEach(sc => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${sc.name}</td>
+      <td>${sc.date || "--"}</td>
+      <td>${sc.time}</td>
+      <td>${sc.device}</td>
+      <td>${sc.cmd}</td>
+      <td>${sc.enabled ? "ON" : "OFF"}</td>
+      <td>
+        <button class="btn btn-sm btn-warning" onclick="toggleSchedule('${sc._id}')">Bật/Tắt</button>
+        <button class="btn btn-sm btn-info" onclick="editSchedule('${sc._id}')">Sửa</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteSchedule('${sc._id}')">Xóa</button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+});
+
+// ====== Các hàm thao tác ======
+async function toggleSchedule(id) {
+  await fetch(`/api/schedules/${id}/toggle`, { method: "POST" });
+}
+async function deleteSchedule(id) {
+  await fetch(`/api/schedules/${id}`, { method: "DELETE" });
+}
+async function editSchedule(id) {
+  // tuỳ bạn: có thể mở modal, hoặc điền lại form với dữ liệu cũ
+  alert("Chức năng sửa schedule: lấy dữ liệu từ server và điền lại form");
+}
+
+// Với thresholds, server hiện chưa có API toggle/xóa.
+// Nếu bạn muốn bật/tắt/xóa auto mode thì cần bổ sung API tương tự schedules.
+async function toggleThreshold(id) {
+  await fetch(`/api/thresholds/${id}/toggle`, { method: "POST" });
+}
+async function deleteThreshold(id) {
+  await fetch(`/api/thresholds/${id}`, { method: "DELETE" });
+}
+
 
