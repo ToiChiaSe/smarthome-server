@@ -216,8 +216,17 @@
           </select>
         </div>
         <div class="col-md-4">
-          <input type="text" name="allowedDevices" class="form-control" placeholder="VD: fan,led1,curtain">
-        </div>
+  <label class="form-label">Thiết bị được phép</label>
+  <select name="allowedDevices" class="form-select" multiple>
+    <option value="fan">Quạt</option>
+    <option value="led1">LED1</option>
+    <option value="led2">LED2</option>
+    <option value="led3">LED3</option>
+    <option value="led4">LED4</option>
+    <option value="curtain">Rèm</option>
+  </select>
+  <small class="text-muted">Giữ Ctrl/Shift để chọn nhiều</small>
+</div>
         <div class="col-12">
           <button type="submit" class="btn btn-primary">Thêm</button>
         </div>
