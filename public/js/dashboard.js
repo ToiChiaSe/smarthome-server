@@ -283,6 +283,66 @@ function updateScheduleCmdOptions() {
     cmdSelect.appendChild(o);
   });
 }
+// ====== Quản lý người dùng ======
+
+// Nhận danh sách user từ server
+socket.on("users", (users) => {
+  const tbody = document.querySelector("#usersTable tbody");
+  tbody.innerHTML = "";
+  users.forEach(u => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${u.username}</td>
+      <td>${u.role}</td>
+      <td>${(u.allowedDevices || []).join(", ")}</td>
+      <td>
+        <button class="btn btn-sm btn-warning" onclick="editUser('${u._id}', '${u.role}', '${(u.allowedDevices || []).join(",")}')">Sửa</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteUser('${u._id}')">Xóa</button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+});
+
+// Thêm user mới
+document.getElementById("addUserForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const form = e.target;
+  const devices = Array.from(form.allowedDevices.selectedOptions).map(opt => opt.value);
+
+  const payload = {
+    username: form.username.value,
+    password: form.password.value,
+    role: form.role.value,
+    allowedDevices: devices
+  };
+
+  await fetch("/api/users", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+  form.reset();
+});
+
+// Xóa user
+async function deleteUser(id) {
+  await fetch(`/api/users/${id}`, { method: "DELETE" });
+}
+
+// Sửa user
+async function editUser(id, role, allowedDevices) {
+  const newRole = prompt("Nhập role mới (admin/user):", role);
+  const newDevices = prompt("Nhập danh sách thiết bị (fan,led1,...):", allowedDevices);
+  await fetch(`/api/users/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      role: newRole,
+      allowedDevices: newDevices.split(",").map(s => s.trim())
+    })
+  });
+}
 // Gọi khi chọn thiết bị
 document.getElementById("sc-device").addEventListener("change", updateScheduleCmdOptions);
 // Khởi tạo khi load trang
