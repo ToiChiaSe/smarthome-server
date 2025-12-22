@@ -256,24 +256,23 @@ app.get("/api/schedules", requireAuth, async (req, res) => {
   res.json(items);
 });
 
-app.post("/api/schedules", requireAdmin, async (req, res) => {
+app.post("/api/schedules", requireAuth, async (req, res) => {
   const { name, date, time, device, cmd, enabled } = req.body;
+  const user = await User.findById(req.session.user.id).lean();
+
+  if (user.role !== "admin" && (!user.allowedDevices || !user.allowedDevices.includes(device))) {
+    return res.status(403).json({ error: "Not allowed to schedule this device" });
+  }
+
   const topic = getTopicByDevice(device);
   if (!topic) return res.status(400).json({ error: "Invalid device" });
 
-  const sc = new Schedule({
-    name,
-    date: date || null,
-    time,
-    device,
-    topic,
-    cmd,
-    enabled: !!enabled
-  });
+  const sc = new Schedule({ name, date: date || null, time, device, topic, cmd, enabled: !!enabled });
   await sc.save();
   io.emit("schedules", await Schedule.find().lean());
   res.json({ ok: true });
 });
+
 
 app.post("/api/schedules/:id/toggle", requireAdmin, async (req, res) => {
   const sc = await Schedule.findById(req.params.id);
