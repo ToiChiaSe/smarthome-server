@@ -229,7 +229,7 @@ app.post("/api/cmd", requireAuth, async (req, res) => {
 });
 
 
-// Thresholds API
+// ====== Thresholds API ======
 app.get("/api/thresholds", requireAuth, async (req, res) => {
   const ths = await Threshold.find().lean();
   res.json(ths);
@@ -249,6 +249,22 @@ app.post("/api/thresholds", requireAuth, async (req, res) => {
   res.json({ ok: true });
 });
 
+// Bật/tắt threshold
+app.post("/api/thresholds/:id/toggle", requireAdmin, async (req, res) => {
+  const th = await Threshold.findById(req.params.id);
+  if (!th) return res.status(404).json({ error: "Not found" });
+  th.enabled = !th.enabled;
+  await th.save();
+  io.emit("thresholds", await Threshold.find().lean());
+  res.json({ ok: true });
+});
+
+// Xóa threshold
+app.delete("/api/thresholds/:id", requireAdmin, async (req, res) => {
+  await Threshold.findByIdAndDelete(req.params.id);
+  io.emit("thresholds", await Threshold.find().lean());
+  res.json({ ok: true });
+});
 
 // Schedules API
 app.get("/api/schedules", requireAuth, async (req, res) => {
