@@ -276,12 +276,15 @@ socket.on("users", (users) => {
 document.getElementById("addUserForm").addEventListener("submit", async (e) => {
   e.preventDefault();
   const form = e.target;
+  const devices = Array.from(form.allowedDevices.selectedOptions).map(opt => opt.value);
+
   const payload = {
     username: form.username.value,
     password: form.password.value,
     role: form.role.value,
-    allowedDevices: form.allowedDevices.value.split(",").map(s => s.trim())
+    allowedDevices: devices
   };
+
   await fetch("/api/users", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -289,6 +292,7 @@ document.getElementById("addUserForm").addEventListener("submit", async (e) => {
   });
   form.reset();
 });
+
 
 // Xóa user
 async function deleteUser(id) {
