@@ -29,12 +29,13 @@ socket.on("deviceStatus", (st) => {
   document.getElementById("led4").textContent = st.led4 ? "ON" : "OFF";
   document.getElementById("fan").textContent  = st.fan ? "ON" : "OFF";
 
-  // curtainMode: 0=STOP, 1=CLOSE, 2=OPEN
-  let curtainText = "--";
-  if (st.curtainMode === 0) curtainText = "STOP";
-  else if (st.curtainMode === 1) curtainText = "CLOSE";
-  else if (st.curtainMode === 2) curtainText = "OPEN";
-  document.getElementById("curtainMode").textContent = curtainText;
+  // curtainMode: 0=STOP_AFTER_CLOSE, 1=OPEN, 2=STOP_AFTER_OPEN, 3=CLOSE
+let curtainText = "--";
+if (st.curtainMode === 0) curtainText = "STOP (sau đóng)";
+else if (st.curtainMode === 1) curtainText = "OPEN";
+else if (st.curtainMode === 2) curtainText = "STOP (sau mở)";
+else if (st.curtainMode === 3) curtainText = "CLOSE";
+document.getElementById("curtainMode").textContent = curtainText;
 
   // cập nhật màu nút toggle
   updateButton("btn-led1", st.led1);
