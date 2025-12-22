@@ -5,6 +5,8 @@ const { Server } = require("socket.io");
 const http = require("http");
 const session = require("express-session");
 const MongoStore = require("connect-mongo");
+const multer = require("multer");
+const path = require("path");
 
 const Sensor = require("./models/Sensor");
 const DeviceStatus = require("./models/DeviceStatus");
@@ -19,6 +21,9 @@ const io = new Server(server);
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(express.static("public"));
+// OTA firmware storage
+const upload = multer({ dest: path.join(__dirname, "firmware") });
+app.use("/firmware", express.static(path.join(__dirname, "firmware")));
 
 app.use(session({
   secret: "secret-key",
@@ -352,6 +357,19 @@ app.delete("/api/users/:id", requireAdmin, async (req, res) => {
   await User.findByIdAndDelete(req.params.id);
   io.emit("users", await User.find().select("-password").lean());
   res.json({ ok: true });
+});
+// ====== OTA Firmware API ======
+app.post("/api/firmware", requireAdmin, upload.single("file"), async (req, res) => {
+  const version = req.body.version;
+  if (!version) return res.status(400).json({ ok: false, error: "Missing version" });
+
+  // URL để ESP32 tải firmware
+  const url = `http://${req.headers.host}/firmware/${req.file.filename}`;
+
+  // Publish thông báo OTA qua MQTT
+  mqttClient.publish("truong/home/ota", JSON.stringify({ version, url }));
+
+  res.json({ ok: true, version, url });
 });
 // ====== Schedule runner ======
 setInterval(async () => {
