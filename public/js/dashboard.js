@@ -28,8 +28,7 @@ socket.on("deviceStatus", (st) => {
   document.getElementById("led3").textContent = st.led3 ? "ON" : "OFF";
   document.getElementById("led4").textContent = st.led4 ? "ON" : "OFF";
   document.getElementById("fan").textContent  = st.fan ? "ON" : "OFF";
-
-  // curtainMode: 0=STOP_AFTER_CLOSE, 1=OPEN, 2=STOP_AFTER_OPEN, 3=CLOSE
+// curtainMode: 0=STOP_AFTER_CLOSE, 1=OPEN, 2=STOP_AFTER_OPEN, 3=CLOSE
 let curtainText = "--";
 if (st.curtainMode === 0) curtainText = "STOP (sau đóng)";
 else if (st.curtainMode === 1) curtainText = "OPEN";
