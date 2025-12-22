@@ -14,8 +14,8 @@ if (s.fanRPS !== undefined) {
 }
 if (s.curtainPercent !== undefined) {
   const bar = document.getElementById("curtainPercent");
-  bar.style.width = s.curtainPercent.toFixed(0) + "%";
-  bar.textContent = s.curtainPercent.toFixed(0) + "%";
+  bar.style.width = s.curtainPercent.toFixed(1) + "%";
+  bar.textContent = s.curtainPercent.toFixed(1) + "%";
 }
 });
 
