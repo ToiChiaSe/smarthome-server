@@ -381,7 +381,10 @@ setInterval(async () => {
       });
     });
 }, 10 * 1000);
-
+// Trả về thông tin user hiện tại
+app.get("/api/me", requireAuth, (req, res) => {
+  res.json(req.session.user);
+});
 // ====== Start server ======
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log(`Server http://localhost:${PORT}`));
