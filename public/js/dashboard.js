@@ -362,3 +362,29 @@ document.addEventListener("DOMContentLoaded", async () => {
     console.error("Không lấy được thông tin user:", err);
   }
 });
+// ====== OTA Firmware Upload ======
+document.getElementById("otaForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const formData = new FormData(e.target);
+
+  try {
+    const res = await fetch("/api/firmware", {
+      method: "POST",
+      body: formData
+    });
+    const r = await res.json();
+    if (r.ok) {
+      document.getElementById("ota-log").textContent =
+        `Đã gửi OTA version ${r.version}, URL: ${r.url}`;
+    } else {
+      alert("Upload OTA thất bại: " + (r.error || ""));
+    }
+  } catch (err) {
+    alert("Lỗi khi upload OTA: " + err.message);
+  }
+});
+// Nếu muốn hiển thị tiến độ OTA từ ESP32
+socket.on("otaStatus", (msg) => {
+  const div = document.getElementById("ota-log");
+  div.textContent = `[${new Date().toLocaleTimeString()}] OTA: ${msg}`;
+});
