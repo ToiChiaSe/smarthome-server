@@ -68,16 +68,19 @@
   </div>
 </div>
   <!-- Điều khiển  -->
-  <div class="card mb-4 shadow-sm rounded">
-  <div class="card-header bg-secondary text-white text-center fw-bold">Điều khiển thiết bị</div>
   <div class="card-body d-flex flex-wrap gap-2 justify-content-center">
-    <button id="btn-led1" class="btn btn-outline-danger rounded-pill px-3">LED1</button>
-    <button id="btn-led2" class="btn btn-outline-danger rounded-pill px-3">LED2</button>
-    <button id="btn-led3" class="btn btn-outline-danger rounded-pill px-3">LED3</button>
-    <button id="btn-led4" class="btn btn-outline-danger rounded-pill px-3">LED4</button>
-    <button id="btn-fan"  class="btn btn-outline-danger rounded-pill px-3">Fan</button>
-    <button id="btn-curtain" class="btn btn-outline-danger rounded-pill px-3">Curtain</button>
-  </div>
+  <button id="btn-led1" class="btn btn-outline-danger rounded-pill px-3"
+          onclick="toggleDevice('truong/home/cmd/led1','led1')">LED1</button>
+  <button id="btn-led2" class="btn btn-outline-danger rounded-pill px-3"
+          onclick="toggleDevice('truong/home/cmd/led2','led2')">LED2</button>
+  <button id="btn-led3" class="btn btn-outline-danger rounded-pill px-3"
+          onclick="toggleDevice('truong/home/cmd/led3','led3')">LED3</button>
+  <button id="btn-led4" class="btn btn-outline-danger rounded-pill px-3"
+          onclick="toggleDevice('truong/home/cmd/led4','led4')">LED4</button>
+  <button id="btn-fan" class="btn btn-outline-danger rounded-pill px-3"
+          onclick="toggleDevice('truong/home/cmd/fan','fan')">Fan</button>
+  <button id="btn-curtain" class="btn btn-outline-danger rounded-pill px-3"
+          onclick="toggleCurtain()">Curtain</button>
 </div>
   <!-- Auto mode -->
 <div class="card mb-4 shadow-sm rounded">
