@@ -237,22 +237,29 @@
 </div>
   <!-- Báo cáo thống kê -->
 <div class="card mb-4">
-  <div class="card-header bg-dark text-white">Báo cáo thống kê cảm biến</div>
+  <div class="card-header bg-dark text-white text-center">
+    Báo cáo thống kê cảm biến
+  </div>
   <div class="card-body">
-    <div class="mb-3">
-      <label class="form-label">Chọn chế độ thống kê:</label>
-      <select id="statsMode" class="form-select w-auto d-inline-block">
-        <option value="daily">Theo ngày</option>
-        <option value="monthly">Theo tháng</option>
-        <option value="yearly">Theo năm</option>
-      </select>
-      <button class="btn btn-primary ms-2" onclick="loadStats()">Xem</button>
+    <!-- Form chọn khoảng thời gian -->
+    <div class="row g-2 mb-3">
+      <div class="col-12 col-md-auto">
+        <input type="date" id="startDate" class="form-control">
+      </div>
+      <div class="col-12 col-md-auto">
+        <input type="date" id="endDate" class="form-control">
+      </div>
+      <div class="col-12 col-md-auto">
+        <button class="btn btn-primary w-100" onclick="loadStatsArchive()">Xem</button>
+      </div>
     </div>
+
+    <!-- Bảng thống kê -->
     <div class="table-responsive">
-      <table class="table table-bordered" id="statsTable">
-        <thead>
+      <table class="table table-bordered table-sm text-center align-middle" id="statsTable">
+        <thead class="table-light">
           <tr>
-            <th>Kỳ</th>
+            <th>Ngày</th>
             <th>Nhiệt độ Min</th>
             <th>Nhiệt độ Max</th>
             <th>Nhiệt độ TB</th>
@@ -266,6 +273,14 @@
         </thead>
         <tbody></tbody>
       </table>
+    </div>
+
+    <!-- Phân trang -->
+    <div id="statsPagination" class="mt-2 d-flex flex-wrap gap-1 justify-content-center"></div>
+
+    <!-- Biểu đồ -->
+    <div class="mt-4">
+      <canvas id="statsChart"></canvas>
     </div>
   </div>
 </div>
