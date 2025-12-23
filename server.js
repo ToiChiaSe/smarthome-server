@@ -9,6 +9,8 @@ const multer = require("multer");
 const path = require("path");
 
 const Sensor = require("./models/Sensor");
+const SensorStats = require("./models/SensorStats");
+const cron = require("node-cron");
 const DeviceStatus = require("./models/DeviceStatus");
 const User = require("./models/User");
 const Threshold = require("./models/Threshold");
@@ -488,6 +490,48 @@ app.get("/api/stats/yearly", requireAuth, async (req, res) => {
     { $sort: { _id: 1 } }
   ]);
   res.json(data);
+});
+// ====== Cron job tổng hợp dữ liệu hằng ngày ======
+cron.schedule("5 0 * * *", async () => {
+  try {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const start = new Date(yesterday.setHours(0,0,0,0));
+    const end   = new Date(yesterday.setHours(23,59,59,999));
+
+    const data = await Sensor.aggregate([
+      { $match: { timestamp: { $gte: start, $lte: end } } },
+      {
+        $group: {
+          _id: null,
+          tempMin: { $min: "$temperature" },
+          tempMax: { $max: "$temperature" },
+          tempAvg: { $avg: "$temperature" },
+          humMin: { $min: "$humidity" },
+          humMax: { $max: "$humidity" },
+          humAvg: { $avg: "$humidity" },
+          lightMin: { $min: "$light" },
+          lightMax: { $max: "$light" },
+          lightAvg: { $avg: "$light" }
+        }
+      }
+    ]);
+
+    if (data.length > 0) {
+      const stats = data[0];
+      const dateStr = start.toISOString().split("T")[0]; // YYYY-MM-DD
+
+      await SensorStats.findOneAndUpdate(
+        { date: dateStr },
+        { ...stats, date: dateStr },
+        { upsert: true }
+      );
+
+      console.log("Saved daily stats for", dateStr);
+    }
+  } catch (err) {
+    console.error("Cron job error:", err.message);
+  }
 });
 // ====== Start server ======
 const PORT = process.env.PORT || 3000;
