@@ -444,6 +444,52 @@ cron.schedule("5 0 * * *", async () => {
     console.error("Cron job error:", err.message);
   }
 });
+app.get("/api/stats/run", async (req, res) => {
+  try {
+    const now = new Date();
+    const yesterday = new Date(Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate() - 1
+    ));
+
+    const start = new Date(Date.UTC(yesterday.getUTCFullYear(), yesterday.getUTCMonth(), yesterday.getUTCDate(), 0, 0, 0));
+    const end   = new Date(Date.UTC(yesterday.getUTCFullYear(), yesterday.getUTCMonth(), yesterday.getUTCDate(), 23, 59, 59));
+
+    const data = await Sensor.aggregate([
+      { $match: { timestamp: { $gte: start, $lte: end } } },
+      {
+        $group: {
+          _id: null,
+          tempMin: { $min: "$temperature" },
+          tempMax: { $max: "$temperature" },
+          tempAvg: { $avg: "$temperature" },
+          humMin: { $min: "$humidity" },
+          humMax: { $max: "$humidity" },
+          humAvg: { $avg: "$humidity" },
+          lightMin: { $min: "$light" },
+          lightMax: { $max: "$light" },
+          lightAvg: { $avg: "$light" }
+        }
+      }
+    ]);
+
+    if (data.length > 0) {
+      const stats = data[0];
+      const dateStr = `${yesterday.getUTCFullYear()}-${String(yesterday.getUTCMonth()+1).padStart(2,"0")}-${String(yesterday.getUTCDate()).padStart(2,"0")}`;
+      await SensorStats.findOneAndUpdate(
+        { date: dateStr },
+        { ...stats, date: dateStr },
+        { upsert: true }
+      );
+      res.json({ ok: true, date: dateStr, stats });
+    } else {
+      res.json({ ok: false, message: "No data found" });
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 // ====== Start server ======
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log(`Server http://localhost:${PORT}`));
