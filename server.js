@@ -451,6 +451,44 @@ app.get("/api/stats/daily", requireAuth, async (req, res) => {
     res.status(500).json({ error: "Error generating stats" });
   }
 });
+// Thống kê theo tháng
+app.get("/api/stats/monthly", requireAuth, async (req, res) => {
+  const data = await Sensor.aggregate([
+    { $group: {
+        _id: { $dateToString: { format: "%Y-%m", date: "$timestamp" } },
+        tempMin: { $min: "$temperature" },
+        tempMax: { $max: "$temperature" },
+        tempAvg: { $avg: "$temperature" },
+        humMin: { $min: "$humidity" },
+        humMax: { $max: "$humidity" },
+        humAvg: { $avg: "$humidity" },
+        lightMin: { $min: "$light" },
+        lightMax: { $max: "$light" },
+        lightAvg: { $avg: "$light" }
+    }},
+    { $sort: { _id: 1 } }
+  ]);
+  res.json(data);
+});
+// Thống kê theo năm
+app.get("/api/stats/yearly", requireAuth, async (req, res) => {
+  const data = await Sensor.aggregate([
+    { $group: {
+        _id: { $dateToString: { format: "%Y", date: "$timestamp" } },
+        tempMin: { $min: "$temperature" },
+        tempMax: { $max: "$temperature" },
+        tempAvg: { $avg: "$temperature" },
+        humMin: { $min: "$humidity" },
+        humMax: { $max: "$humidity" },
+        humAvg: { $avg: "$humidity" },
+        lightMin: { $min: "$light" },
+        lightMax: { $max: "$light" },
+        lightAvg: { $avg: "$light" }
+    }},
+    { $sort: { _id: 1 } }
+  ]);
+  res.json(data);
+});
 // ====== Start server ======
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log(`Server http://localhost:${PORT}`));
