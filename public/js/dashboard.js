@@ -442,8 +442,6 @@ async function loadStatsArchive(page = 1, limit = 20) {
     alert("Không thể tải báo cáo thống kê");
   }
 }
-// Gọi khi load trang
-document.addEventListener("DOMContentLoaded", () => loadStatsArchive());
 // Nếu muốn hiển thị tiến độ OTA từ ESP32
 socket.on("otaStatus", (msg) => {
   const div = document.getElementById("ota-log");
