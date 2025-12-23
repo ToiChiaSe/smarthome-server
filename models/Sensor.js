@@ -8,4 +8,6 @@ const SensorSchema = new mongoose.Schema({
   timestamp: { type: Date, default: Date.now }
 }, { versionKey: false });
 
+SensorSchema.index({ timestamp: 1 }, { expireAfterSeconds: 2592000 });
+
 module.exports = mongoose.model("Sensor", SensorSchema);
