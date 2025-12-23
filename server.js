@@ -389,13 +389,28 @@ app.get("/api/stats/archive", requireAuth, async (req, res) => {
 // ====== Cron job tổng hợp dữ liệu hằng ngày ======
 cron.schedule("5 0 * * *", async () => {
   try {
-    // Lấy ngày hôm qua theo giờ VN
-    const nowVN = new Date().toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" });
-    const vnDate = new Date(nowVN);
-    vnDate.setDate(vnDate.getDate() - 1);
-    // Tạo khoảng thời gian từ 00:00 đến 23:59 hôm qua (giờ VN)
-    const start = new Date(vnDate.setHours(0, 0, 0, 0));
-    const end   = new Date(vnDate.setHours(23, 59, 59, 999));
+    const now = new Date();
+    // hôm qua theo UTC
+    const yesterday = new Date(Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate() - 1
+    ));
+
+    // khoảng thời gian từ 00:00 đến 23:59 UTC hôm qua
+    const start = new Date(Date.UTC(
+      yesterday.getUTCFullYear(),
+      yesterday.getUTCMonth(),
+      yesterday.getUTCDate(), 0, 0, 0
+    ));
+    const end = new Date(Date.UTC(
+      yesterday.getUTCFullYear(),
+      yesterday.getUTCMonth(),
+      yesterday.getUTCDate(), 23, 59, 59
+    ));
+
+    console.log("Cron running, start:", start, "end:", end);
+
     const data = await Sensor.aggregate([
       { $match: { timestamp: { $gte: start, $lte: end } } },
       {
@@ -413,11 +428,11 @@ cron.schedule("5 0 * * *", async () => {
         }
       }
     ]);
+
     if (data.length > 0) {
       const stats = data[0];
-      // Format ngày theo VN timezone: YYYY-MM-DD
-      const dateStr = new Date(nowVN).toLocaleDateString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })
-        .split("/").reverse().join("-");
+      // Lưu theo định dạng YYYY-MM-DD
+      const dateStr = `${yesterday.getUTCFullYear()}-${String(yesterday.getUTCMonth()+1).padStart(2,"0")}-${String(yesterday.getUTCDate()).padStart(2,"0")}`;
       await SensorStats.findOneAndUpdate(
         { date: dateStr },
         { ...stats, date: dateStr },
