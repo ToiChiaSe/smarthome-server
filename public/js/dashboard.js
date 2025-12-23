@@ -384,6 +384,41 @@ document.getElementById("otaForm").addEventListener("submit", async (e) => {
     alert("Lỗi khi upload OTA: " + err.message);
   }
 });
+// ====== Báo cáo thống kê cảm biến ======
+async function loadStats() {
+  try {
+    const res = await fetch("/api/stats/daily");
+    if (!res.ok) throw new Error("Không lấy được dữ liệu thống kê");
+    const data = await res.json();
+
+    const tbody = document.querySelector("#statsTable tbody");
+    tbody.innerHTML = "";
+    data.forEach(row => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${row._id}</td>
+        <td>${row.tempMin?.toFixed(1) ?? "--"}</td>
+        <td>${row.tempMax?.toFixed(1) ?? "--"}</td>
+        <td>${row.tempAvg?.toFixed(1) ?? "--"}</td>
+        <td>${row.humMin?.toFixed(1) ?? "--"}</td>
+        <td>${row.humMax?.toFixed(1) ?? "--"}</td>
+        <td>${row.humAvg?.toFixed(1) ?? "--"}</td>
+        <td>${row.lightMin ?? "--"}</td>
+        <td>${row.lightMax ?? "--"}</td>
+        <td>${row.lightAvg?.toFixed(1) ?? "--"}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  } catch (err) {
+    console.error("Error loading stats:", err);
+    const tbody = document.querySelector("#statsTable tbody");
+    tbody.innerHTML =
+      `<tr><td colspan="10" class="text-danger">Không tải được dữ liệu thống kê</td></tr>`;
+  }
+}
+
+// Gọi khi load trang
+document.addEventListener("DOMContentLoaded", loadStats);
 // Nếu muốn hiển thị tiến độ OTA từ ESP32
 socket.on("otaStatus", (msg) => {
   const div = document.getElementById("ota-log");
