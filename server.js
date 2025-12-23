@@ -437,14 +437,17 @@ app.get("/api/stats/archive", requireAuth, async (req, res) => {
   const stats = await SensorStats.find(query).sort({ date: 1 }).lean();
   res.json(stats);
 });
-
 // ====== Cron job tổng hợp dữ liệu hằng ngày ======
 cron.schedule("5 0 * * *", async () => {
   try {
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const start = new Date(yesterday.setHours(0,0,0,0));
-    const end   = new Date(yesterday.setHours(23,59,59,999));
+    // Lấy ngày hôm qua theo giờ VN
+    const nowVN = new Date().toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" });
+    const vnDate = new Date(nowVN);
+    vnDate.setDate(vnDate.getDate() - 1);
+
+    // Tạo khoảng thời gian từ 00:00 đến 23:59 hôm qua (giờ VN)
+    const start = new Date(vnDate.setHours(0, 0, 0, 0));
+    const end   = new Date(vnDate.setHours(23, 59, 59, 999));
 
     const data = await Sensor.aggregate([
       { $match: { timestamp: { $gte: start, $lte: end } } },
@@ -466,7 +469,9 @@ cron.schedule("5 0 * * *", async () => {
 
     if (data.length > 0) {
       const stats = data[0];
-      const dateStr = start.toISOString().split("T")[0]; // YYYY-MM-DD
+      // Format ngày theo VN timezone: YYYY-MM-DD
+      const dateStr = new Date(nowVN).toLocaleDateString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })
+        .split("/").reverse().join("-");
 
       await SensorStats.findOneAndUpdate(
         { date: dateStr },
