@@ -427,6 +427,16 @@ setInterval(async () => {
 app.get("/api/me", requireAuth, (req, res) => {
   res.json(req.session.user);
 });
+// ====== Stats Archive API ======
+app.get("/api/stats/archive", requireAuth, async (req, res) => {
+  const { start, end } = req.query;
+  const query = {};
+  if (start && end) {
+    query.date = { $gte: start, $lte: end };
+  }
+  const stats = await SensorStats.find(query).sort({ date: 1 }).lean();
+  res.json(stats);
+});
 // ====== Stats API ======
 app.get("/api/stats/daily", requireAuth, async (req, res) => {
   try {
