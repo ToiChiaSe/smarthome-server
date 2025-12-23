@@ -384,36 +384,78 @@ document.getElementById("otaForm").addEventListener("submit", async (e) => {
     alert("Lỗi khi upload OTA: " + err.message);
   }
 });
-// ====== Báo cáo thống kê cảm biến ======
-async function loadStats() {
-  const mode = document.getElementById("statsMode").value; // daily/monthly/yearly
+// ====== Báo cáo thống kê từ SensorStats (archive) ======
+let statsChart;
+
+async function loadStatsArchive(page = 1, limit = 20) {
+  const start = document.getElementById("startDate").value;
+  const end = document.getElementById("endDate").value;
+  if (!start || !end) {
+    alert("Vui lòng chọn ngày bắt đầu và ngày kết thúc");
+    return;
+  }
+
   try {
-    const res = await fetch(`/api/stats/${mode}`);
-    if (!res.ok) throw new Error("Không lấy được dữ liệu");
+    const res = await fetch(`/api/stats/archive?start=${start}&end=${end}`);
     const data = await res.json();
 
+    // ===== Pagination =====
+    const totalPages = Math.ceil(data.length / limit);
+    const slice = data.slice((page - 1) * limit, page * limit);
+
+    // Render bảng
     const tbody = document.querySelector("#statsTable tbody");
     tbody.innerHTML = "";
-    data.forEach(row => {
-      const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td>${row._id}</td>
-        <td>${row.tempMin?.toFixed(1) ?? "--"}</td>
-        <td>${row.tempMax?.toFixed(1) ?? "--"}</td>
-        <td>${row.tempAvg?.toFixed(1) ?? "--"}</td>
-        <td>${row.humMin?.toFixed(1) ?? "--"}</td>
-        <td>${row.humMax?.toFixed(1) ?? "--"}</td>
-        <td>${row.humAvg?.toFixed(1) ?? "--"}</td>
-        <td>${row.lightMin ?? "--"}</td>
-        <td>${row.lightMax ?? "--"}</td>
-        <td>${row.lightAvg?.toFixed(1) ?? "--"}</td>
-      `;
-      tbody.appendChild(tr);
+    slice.forEach(row => {
+      tbody.innerHTML += `
+        <tr>
+          <td>${row.date}</td>
+          <td>${row.tempMin?.toFixed(1) ?? "--"}</td>
+          <td>${row.tempMax?.toFixed(1) ?? "--"}</td>
+          <td>${row.tempAvg?.toFixed(1) ?? "--"}</td>
+          <td>${row.humMin?.toFixed(1) ?? "--"}</td>
+          <td>${row.humMax?.toFixed(1) ?? "--"}</td>
+          <td>${row.humAvg?.toFixed(1) ?? "--"}</td>
+          <td>${row.lightMin ?? "--"}</td>
+          <td>${row.lightMax ?? "--"}</td>
+          <td>${row.lightAvg?.toFixed(1) ?? "--"}</td>
+        </tr>`;
+    });
+
+    // Render pagination buttons
+    const paginationDiv = document.getElementById("statsPagination");
+    paginationDiv.innerHTML = "";
+    for (let i = 1; i <= totalPages; i++) {
+      paginationDiv.innerHTML += `<button class="btn btn-sm ${i===page?"btn-primary":"btn-outline-primary"}" onclick="loadStatsArchive(${i},${limit})">${i}</button> `;
+    }
+
+    // ===== Chart.js =====
+    const labels = data.map(r => r.date);
+    const temps = data.map(r => r.tempAvg);
+    const hums = data.map(r => r.humAvg);
+    const lights = data.map(r => r.lightAvg);
+
+    if (statsChart) statsChart.destroy();
+    const ctx = document.getElementById("statsChart").getContext("2d");
+    statsChart = new Chart(ctx, {
+      type: "line",
+      data: {
+        labels,
+        datasets: [
+          { label: "Nhiệt độ TB (°C)", data: temps, borderColor: "red", fill: false },
+          { label: "Độ ẩm TB (%)", data: hums, borderColor: "blue", fill: false },
+          { label: "Ánh sáng TB (lux)", data: lights, borderColor: "orange", fill: false }
+        ]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { position: "bottom" } },
+        scales: { x: { title: { display: true, text: "Ngày" } } }
+      }
     });
   } catch (err) {
-    console.error(err);
-    document.querySelector("#statsTable tbody").innerHTML =
-      `<tr><td colspan="10" class="text-danger">Không tải được dữ liệu</td></tr>`;
+    console.error("Error loading stats archive:", err);
+    alert("Không thể tải báo cáo thống kê");
   }
 }
 // Gọi khi load trang
