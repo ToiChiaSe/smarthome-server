@@ -11,5 +11,6 @@ const DeviceStatusSchema = new mongoose.Schema({
   timestamp: { type: Date, default: Date.now }
 }, { versionKey: false });
 
-module.exports = mongoose.model("DeviceStatus", DeviceStatusSchema);
+DeviceStatusSchema.index({ timestamp: 1 }, { expireAfterSeconds: 2592000 });
 
+module.exports = mongoose.model("DeviceStatus", DeviceStatusSchema);
