@@ -387,8 +387,6 @@ app.get("/api/stats/archive", requireAuth, async (req, res) => {
   res.json(stats);
 });
 // ====== Cron job tổng hợp dữ liệu hằng ngày ======
-const cron = require("node-cron");
-
 cron.schedule("5 0 * * *", async () => {
   try {
     const now = new Date();
