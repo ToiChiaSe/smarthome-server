@@ -386,9 +386,10 @@ document.getElementById("otaForm").addEventListener("submit", async (e) => {
 });
 // ====== Báo cáo thống kê cảm biến ======
 async function loadStats() {
+  const mode = document.getElementById("statsMode").value; // daily/monthly/yearly
   try {
-    const res = await fetch("/api/stats/daily");
-    if (!res.ok) throw new Error("Không lấy được dữ liệu thống kê");
+    const res = await fetch(`/api/stats/${mode}`);
+    if (!res.ok) throw new Error("Không lấy được dữ liệu");
     const data = await res.json();
 
     const tbody = document.querySelector("#statsTable tbody");
@@ -410,13 +411,11 @@ async function loadStats() {
       tbody.appendChild(tr);
     });
   } catch (err) {
-    console.error("Error loading stats:", err);
-    const tbody = document.querySelector("#statsTable tbody");
-    tbody.innerHTML =
-      `<tr><td colspan="10" class="text-danger">Không tải được dữ liệu thống kê</td></tr>`;
+    console.error(err);
+    document.querySelector("#statsTable tbody").innerHTML =
+      `<tr><td colspan="10" class="text-danger">Không tải được dữ liệu</td></tr>`;
   }
 }
-
 // Gọi khi load trang
 document.addEventListener("DOMContentLoaded", loadStats);
 // Nếu muốn hiển thị tiến độ OTA từ ESP32
