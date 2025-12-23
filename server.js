@@ -99,20 +99,42 @@ function requireAdmin(req, res, next) {
   next();
 }
 
+// Buffer để gom dữ liệu trong 1 phút
+let sensorBuffer = [];
+let lastMinute = Math.floor(Date.now() / 60000);
+
 mqttClient.on("message", async (topic, message) => {
   try {
     const data = JSON.parse(message.toString());
 
     if (topic === "truong/home/cambien") {
+      // vẫn realtime cho dashboard
       io.emit("sensors", [data]);
-      await new Sensor({
-        deviceId: data.deviceId,
-        temperature: data.temperature,
-        humidity: data.humidity,
-        light: data.light,
-        timestamp: new Date()
-      }).save();
 
+      // gom dữ liệu vào buffer
+      sensorBuffer.push(data);
+
+      const currentMinute = Math.floor(Date.now() / 60000);
+      if (currentMinute !== lastMinute) {
+        // tính trung bình của phút vừa qua
+        const avgTemp = sensorBuffer.reduce((sum, d) => sum + d.temperature, 0) / sensorBuffer.length;
+        const avgHum  = sensorBuffer.reduce((sum, d) => sum + d.humidity, 0) / sensorBuffer.length;
+        const avgLight= sensorBuffer.reduce((sum, d) => sum + d.light, 0) / sensorBuffer.length;
+
+        await new Sensor({
+          deviceId: "esp32-001",
+          temperature: avgTemp,
+          humidity: avgHum,
+          light: avgLight,
+          timestamp: new Date()
+        }).save();
+
+        // reset buffer cho phút mới
+        sensorBuffer = [];
+        lastMinute = currentMinute;
+      }
+
+      // ====== Kiểm tra threshold giữ nguyên ======
       const thresholds = await Threshold.find({ enabled: true }).lean();
       for (const th of thresholds) {
         const now = new Date();
