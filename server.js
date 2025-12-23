@@ -425,6 +425,32 @@ setInterval(async () => {
 app.get("/api/me", requireAuth, (req, res) => {
   res.json(req.session.user);
 });
+// ====== Stats API ======
+app.get("/api/stats/daily", requireAuth, async (req, res) => {
+  try {
+    const data = await Sensor.aggregate([
+      {
+        $group: {
+          _id: { $dateToString: { format: "%Y-%m-%d", date: "$timestamp" } },
+          tempMin: { $min: "$temperature" },
+          tempMax: { $max: "$temperature" },
+          tempAvg: { $avg: "$temperature" },
+          humMin: { $min: "$humidity" },
+          humMax: { $max: "$humidity" },
+          humAvg: { $avg: "$humidity" },
+          lightMin: { $min: "$light" },
+          lightMax: { $max: "$light" },
+          lightAvg: { $avg: "$light" }
+        }
+      },
+      { $sort: { _id: 1 } }
+    ]);
+    res.json(data);
+  } catch (err) {
+    console.error("Stats error:", err.message);
+    res.status(500).json({ error: "Error generating stats" });
+  }
+});
 // ====== Start server ======
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log(`Server http://localhost:${PORT}`));
