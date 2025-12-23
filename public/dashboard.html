@@ -257,54 +257,55 @@
     </div>
   </div>
 
-  <!-- Báo cáo thống kê -->
-  <div class="card mb-4 shadow-sm border-info">
-    <div class="card-header bg-dark text-light text-center fw-bold">Báo cáo thống kê cảm biến</div>
-    <div class="card-body text-light">
-      <!-- Form chọn khoảng thời gian -->
-      <div class="row g-2 mb-3 justify-content-center">
-        <div class="col-12 col-md-auto">
-          <input type="date" id="startDate" class="form-control">
-        </div>
-        <div class="col-12 col-md-auto">
-          <input type="date" id="endDate" class="form-control">
-        </div>
-        <div class="col-12 col-md-auto">
-          <button class="btn btn-primary rounded-pill px-4 w-100" onclick="loadStatsArchive()">Xem</button>
-        </div>
+ <!-- Báo cáo thống kê -->
+<div class="card mb-4 shadow-sm border-info">
+  <div class="card-header bg-dark text-light text-center fw-bold">
+    Báo cáo thống kê cảm biến
+  </div>
+  <div class="card-body text-light">
+    <!-- Form chọn khoảng thời gian -->
+    <div class="row g-2 mb-3 justify-content-center">
+      <div class="col-12 col-md-auto">
+        <input type="date" id="startDate" class="form-control">
       </div>
-
-      <!-- Bảng thống kê -->
-      <div class="table-responsive">
-        <table class="table table-bordered table-hover table-striped align-middle text-light" id="statsTable">
-          <thead class="table-dark">
-            <tr>
-              <th>Ngày</th>
-              <th>Nhiệt độ Min</th>
-              <th>Nhiệt độ Max</th>
-              <th>Nhiệt độ TB</th>
-              <th>Độ ẩm Min</th>
-              <th>Độ ẩm Max</th>
-              <th>Độ ẩm TB</th>
-              <th>Ánh sáng Min</th>
-              <th>Ánh sáng Max</th>
-              <th>Ánh sáng TB</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
+      <div class="col-12 col-md-auto">
+        <input type="date" id="endDate" class="form-control">
       </div>
-
-      <!-- Phân trang -->
-      <div id="statsPagination" class="mt-2 d-flex flex-wrap gap-1 justify-content-center"></div>
-
-      <!-- Biểu đồ -->
-      <div class="mt-4 bg-dark rounded p-3">
-        <canvas id="statsChart"></canvas>
+      <div class="col-12 col-md-auto">
+        <button class="btn btn-primary rounded-pill px-4 w-100" onclick="loadStatsArchive()">Xem</button>
       </div>
     </div>
-  </div>
 
+    <!-- Bảng thống kê -->
+    <div class="table-responsive">
+      <table class="table table-bordered table-hover table-striped align-middle text-light" id="statsTable">
+        <thead class="table-dark">
+          <tr>
+            <th>Ngày</th>
+            <th>Nhiệt độ Min</th>
+            <th>Nhiệt độ Max</th>
+            <th>Nhiệt độ TB</th>
+            <th>Độ ẩm Min</th>
+            <th>Độ ẩm Max</th>
+            <th>Độ ẩm TB</th>
+            <th>Ánh sáng Min</th>
+            <th>Ánh sáng Max</th>
+            <th>Ánh sáng TB</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- Phân trang -->
+    <div id="statsPagination" class="mt-2 d-flex flex-wrap gap-1 justify-content-center"></div>
+
+    <!-- Biểu đồ thống kê -->
+    <div class="mt-4 bg-dark rounded p-3">
+      <canvas id="statsChart"></canvas>
+    </div>
+  </div>
+</div>
   <!-- Quản lý người dùng -->
   <div class="card mb-4 shadow-sm border-info">
     <div class="card-header bg-dark text-light text-center fw-bold">Quản lý người dùng (Admin)</div>
