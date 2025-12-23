@@ -19,14 +19,12 @@ const Schedule = require("./models/Schedule");
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
-
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(express.static("public"));
 // OTA firmware storage
 const upload = multer({ dest: path.join(__dirname, "firmware") });
 app.use("/firmware", express.static(path.join(__dirname, "firmware")));
-
 app.use(session({
   secret: "secret-key",
   resave: false,
@@ -37,7 +35,6 @@ app.use(session({
   }),
   cookie: { maxAge: 1000 * 60 * 60 * 24 }
 }));
-
 const MONGO_URI = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/smarthome";
 mongoose.connect(MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
   .then(async () => {
@@ -75,7 +72,6 @@ mqttClient.on("connect", () => {
   mqttClient.subscribe("truong/home/cambien");
   mqttClient.subscribe("truong/home/status");
 });
-
 // Helper: ánh xạ thiết bị sang topic
 function getTopicByDevice(device) {
   switch (device) {
@@ -88,7 +84,6 @@ function getTopicByDevice(device) {
     default: return null;
   }
 }
-
 // Middleware kiểm tra đăng nhập & quyền admin
 function requireAuth(req, res, next) {
   if (!req.session.user) return res.status(401).json({ error: "Unauthorized" });
@@ -100,29 +95,23 @@ function requireAdmin(req, res, next) {
   }
   next();
 }
-
 // Buffer để gom dữ liệu trong 1 phút
 let sensorBuffer = [];
 let lastMinute = Math.floor(Date.now() / 60000);
-
 mqttClient.on("message", async (topic, message) => {
   try {
     const data = JSON.parse(message.toString());
-
     if (topic === "truong/home/cambien") {
       // vẫn realtime cho dashboard
       io.emit("sensors", [data]);
-
       // gom dữ liệu vào buffer
       sensorBuffer.push(data);
-
       const currentMinute = Math.floor(Date.now() / 60000);
       if (currentMinute !== lastMinute) {
         // tính trung bình của phút vừa qua
         const avgTemp = sensorBuffer.reduce((sum, d) => sum + d.temperature, 0) / sensorBuffer.length;
         const avgHum  = sensorBuffer.reduce((sum, d) => sum + d.humidity, 0) / sensorBuffer.length;
         const avgLight= sensorBuffer.reduce((sum, d) => sum + d.light, 0) / sensorBuffer.length;
-
         await new Sensor({
           deviceId: "esp32-001",
           temperature: avgTemp,
@@ -130,12 +119,10 @@ mqttClient.on("message", async (topic, message) => {
           light: avgLight,
           timestamp: new Date()
         }).save();
-
         // reset buffer cho phút mới
         sensorBuffer = [];
         lastMinute = currentMinute;
       }
-
       // ====== Kiểm tra threshold giữ nguyên ======
       const thresholds = await Threshold.find({ enabled: true }).lean();
       for (const th of thresholds) {
@@ -148,7 +135,6 @@ mqttClient.on("message", async (topic, message) => {
         });
         const [hh, mm] = formatter.format(now).split(":");
         const currentMinutes = parseInt(hh) * 60 + parseInt(mm);
-
         let timeOk = true;
         if (th.timeStart && th.timeEnd) {
           const [sh, sm] = th.timeStart.split(":").map(Number);
@@ -157,13 +143,11 @@ mqttClient.on("message", async (topic, message) => {
           const endMinutes = eh * 60 + em;
           timeOk = currentMinutes >= startMinutes && currentMinutes <= endMinutes;
         }
-
         if (th.date) {
           const today = now.toLocaleDateString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })
             .split("/").reverse().join("-");
           timeOk = timeOk && (today === th.date);
         }
-
         if (timeOk) {
           const checks = [];
           const pushCheck = (sensorName, value, bounds) => {
@@ -178,7 +162,6 @@ mqttClient.on("message", async (topic, message) => {
           pushCheck("temperature", data.temperature, th.thresholds?.temperature);
           pushCheck("humidity", data.humidity, th.thresholds?.humidity);
           pushCheck("light", data.light, th.thresholds?.light);
-
           if (checks.length > 0) {
             const hasMax = checks.some(c => c.trigger === "max");
             const action = hasMax ? th.actionMax : th.actionMin;
@@ -217,20 +200,15 @@ io.on("connection", async (socket) => {
   const history = await Sensor.find().sort({ timestamp: -1 }).limit(60).lean();
   history.reverse();
   socket.emit("sensorsHistory", history);
-
   const lastStatus = await DeviceStatus.find().sort({ timestamp: -1 }).limit(1).lean();
   if (lastStatus[0]) socket.emit("deviceStatus", lastStatus[0]);
-
   const thresholds = await Threshold.find().lean();
   socket.emit("thresholds", thresholds);
-
   const schedules = await Schedule.find().sort({ time: 1 }).lean();
   socket.emit("schedules", schedules);
-
   const users = await User.find().select("-password").lean();
   socket.emit("users", users);
 });
-
 app.get("/login", (req, res) => res.sendFile(__dirname + "/public/login.html"));
 app.post("/login", async (req, res) => {
   const { username, password } = req.body;
@@ -242,42 +220,33 @@ app.post("/login", async (req, res) => {
   res.redirect("/dashboard.html");
 });
 app.post("/logout", (req, res) => req.session.destroy(() => res.redirect("/login")));
-
 app.post("/api/cmd", requireAuth, async (req, res) => {
   const { topic, cmd } = req.body;
   const user = await User.findById(req.session.user.id).lean();
-
   // kiểm tra quyền thiết bị
   const device = topic.split("/").pop(); // ví dụ: fan, led1...
   if (user.role !== "admin" && (!user.allowedDevices || !user.allowedDevices.includes(device))) {
     return res.status(403).json({ error: "Not allowed to control this device" });
   }
-
   mqttClient.publish(topic, cmd);
   res.json({ ok: true });
 });
-
-
 // ====== Thresholds API ======
 app.get("/api/thresholds", requireAuth, async (req, res) => {
   const ths = await Threshold.find().lean();
   res.json(ths);
 });
-
 app.post("/api/thresholds", requireAuth, async (req, res) => {
   const payload = req.body;
   const user = await User.findById(req.session.user.id).lean();
-
   if (user.role !== "admin" && (!user.allowedDevices || !user.allowedDevices.includes(payload.device))) {
     return res.status(403).json({ error: "Not allowed to set auto mode for this device" });
   }
-
   const th = new Threshold(payload);
   await th.save();
   io.emit("thresholds", await Threshold.find().lean());
   res.json({ ok: true });
 });
-
 // Bật/tắt threshold
 app.post("/api/thresholds/:id/toggle", requireAdmin, async (req, res) => {
   const th = await Threshold.findById(req.params.id);
@@ -287,38 +256,30 @@ app.post("/api/thresholds/:id/toggle", requireAdmin, async (req, res) => {
   io.emit("thresholds", await Threshold.find().lean());
   res.json({ ok: true });
 });
-
 // Xóa threshold
 app.delete("/api/thresholds/:id", requireAdmin, async (req, res) => {
   await Threshold.findByIdAndDelete(req.params.id);
   io.emit("thresholds", await Threshold.find().lean());
   res.json({ ok: true });
 });
-
 // Schedules API
 app.get("/api/schedules", requireAuth, async (req, res) => {
   const items = await Schedule.find().lean();
   res.json(items);
 });
-
 app.post("/api/schedules", requireAuth, async (req, res) => {
   const { name, date, time, device, cmd, enabled } = req.body;
   const user = await User.findById(req.session.user.id).lean();
-
   if (user.role !== "admin" && (!user.allowedDevices || !user.allowedDevices.includes(device))) {
     return res.status(403).json({ error: "Not allowed to schedule this device" });
   }
-
   const topic = getTopicByDevice(device);
   if (!topic) return res.status(400).json({ error: "Invalid device" });
-
   const sc = new Schedule({ name, date: date || null, time, device, topic, cmd, enabled: !!enabled });
   await sc.save();
   io.emit("schedules", await Schedule.find().lean());
   res.json({ ok: true });
 });
-
-
 app.post("/api/schedules/:id/toggle", requireAdmin, async (req, res) => {
   const sc = await Schedule.findById(req.params.id);
   if (!sc) return res.status(404).json({ error: "Not found" });
@@ -327,31 +288,26 @@ app.post("/api/schedules/:id/toggle", requireAdmin, async (req, res) => {
   io.emit("schedules", await Schedule.find().lean());
   res.json({ ok: true });
 });
-
 app.delete("/api/schedules/:id", requireAdmin, async (req, res) => {
   await Schedule.findByIdAndDelete(req.params.id);
   io.emit("schedules", await Schedule.find().lean());
   res.json({ ok: true });
 });
-
 app.get("/", (req, res) => {
   if (req.session.user) res.redirect("/dashboard.html");
   else res.redirect("/login");
 });
 // ====== User management API ======
-
 // Lấy danh sách người dùng (admin mới được xem)
 app.get("/api/users", requireAdmin, async (req, res) => {
   const users = await User.find().select("-password").lean();
   res.json(users);
 });
-
 // Thêm người dùng mới
 app.post("/api/users", requireAdmin, async (req, res) => {
   const { username, password, role, allowedDevices } = req.body;
   const existing = await User.findOne({ username });
   if (existing) return res.status(400).json({ error: "User already exists" });
-
   const u = new User({
     username,
     password,
@@ -362,20 +318,17 @@ app.post("/api/users", requireAdmin, async (req, res) => {
   io.emit("users", await User.find().select("-password").lean());
   res.json({ ok: true });
 });
-
 // Sửa thông tin người dùng
 app.put("/api/users/:id", requireAdmin, async (req, res) => {
   const { role, allowedDevices } = req.body;
   const u = await User.findById(req.params.id);
   if (!u) return res.status(404).json({ error: "Not found" });
-
   if (role) u.role = role;
   if (allowedDevices) u.allowedDevices = allowedDevices;
   await u.save();
   io.emit("users", await User.find().select("-password").lean());
   res.json({ ok: true });
 });
-
 // Xóa người dùng
 app.delete("/api/users/:id", requireAdmin, async (req, res) => {
   await User.findByIdAndDelete(req.params.id);
@@ -386,13 +339,10 @@ app.delete("/api/users/:id", requireAdmin, async (req, res) => {
 app.post("/api/firmware", requireAdmin, upload.single("file"), async (req, res) => {
   const version = req.body.version;
   if (!version) return res.status(400).json({ ok: false, error: "Missing version" });
-
   // URL để ESP32 tải firmware
   const url = `http://${req.headers.host}/firmware/${req.file.filename}`;
-
   // Publish thông báo OTA qua MQTT
   mqttClient.publish("truong/home/ota", JSON.stringify({ version, url }));
-
   res.json({ ok: true, version, url });
 });
 // ====== Schedule runner ======
@@ -408,7 +358,6 @@ setInterval(async () => {
   const current = `${hh}:${mm}`;
   const today = now.toLocaleDateString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })
     .split("/").reverse().join("-");
-
   const items = await Schedule.find({ enabled: true }).lean();
   items
     .filter(i => i.time === current)
@@ -444,11 +393,9 @@ cron.schedule("5 0 * * *", async () => {
     const nowVN = new Date().toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" });
     const vnDate = new Date(nowVN);
     vnDate.setDate(vnDate.getDate() - 1);
-
     // Tạo khoảng thời gian từ 00:00 đến 23:59 hôm qua (giờ VN)
     const start = new Date(vnDate.setHours(0, 0, 0, 0));
     const end   = new Date(vnDate.setHours(23, 59, 59, 999));
-
     const data = await Sensor.aggregate([
       { $match: { timestamp: { $gte: start, $lte: end } } },
       {
@@ -466,19 +413,16 @@ cron.schedule("5 0 * * *", async () => {
         }
       }
     ]);
-
     if (data.length > 0) {
       const stats = data[0];
       // Format ngày theo VN timezone: YYYY-MM-DD
       const dateStr = new Date(nowVN).toLocaleDateString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })
         .split("/").reverse().join("-");
-
       await SensorStats.findOneAndUpdate(
         { date: dateStr },
         { ...stats, date: dateStr },
         { upsert: true }
       );
-
       console.log("Saved daily stats for", dateStr);
     }
   } catch (err) {
