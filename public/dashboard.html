@@ -239,11 +239,20 @@
 <div class="card mb-4">
   <div class="card-header bg-dark text-white">Báo cáo thống kê cảm biến</div>
   <div class="card-body">
+    <div class="mb-3">
+      <label class="form-label">Chọn chế độ thống kê:</label>
+      <select id="statsMode" class="form-select w-auto d-inline-block">
+        <option value="daily">Theo ngày</option>
+        <option value="monthly">Theo tháng</option>
+        <option value="yearly">Theo năm</option>
+      </select>
+      <button class="btn btn-primary ms-2" onclick="loadStats()">Xem</button>
+    </div>
     <div class="table-responsive">
       <table class="table table-bordered" id="statsTable">
         <thead>
           <tr>
-            <th>Ngày</th>
+            <th>Kỳ</th>
             <th>Nhiệt độ Min</th>
             <th>Nhiệt độ Max</th>
             <th>Nhiệt độ TB</th>
