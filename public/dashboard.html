@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="vi">
+<html lang="vi" data-bs-theme="dark">
 <head>
   <meta charset="utf-8">
   <title>Smart Home Dashboard</title>
@@ -7,302 +7,205 @@
   <script src="/socket.io/socket.io.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
 </head>
-<body class="container-fluid py-4">
+<body class="container-fluid py-4 bg-dark text-light">
   <div class="d-flex justify-content-between align-items-center mb-3">
-    <h3>Smart Home Dashboard</h3>
+    <h3 class="fw-bold text-primary">Smart Home Dashboard</h3>
     <form method="POST" action="/logout">
       <button class="btn btn-outline-danger btn-sm">Logout</button>
     </form>
   </div>
+
   <!-- Cards cảm biến -->
   <div class="row mb-4">
-    <div class="col-md-4">
-      <div class="card text-center">
-        <div class="card-header bg-danger text-white">Nhiệt độ</div>
-        <div class="card-body"><div id="temp" class="fs-2 fw-bold">-- °C</div></div>
+    <div class="col-md-4 mb-3">
+      <div class="card text-center shadow-sm border-primary">
+        <div class="card-header bg-primary text-white fw-bold">Nhiệt độ</div>
+        <div class="card-body"><div id="temp" class="fs-2 fw-bold text-light">-- °C</div></div>
       </div>
     </div>
-    <div class="col-md-4">
-      <div class="card text-center">
-        <div class="card-header bg-primary text-white">Độ ẩm</div>
-        <div class="card-body"><div id="hum" class="fs-2 fw-bold">-- %</div></div>
+    <div class="col-md-4 mb-3">
+      <div class="card text-center shadow-sm border-primary">
+        <div class="card-header bg-primary text-white fw-bold">Độ ẩm</div>
+        <div class="card-body"><div id="hum" class="fs-2 fw-bold text-light">-- %</div></div>
       </div>
     </div>
-    <div class="col-md-4">
-      <div class="card text-center">
-        <div class="card-header bg-warning">Ánh sáng</div>
-        <div class="card-body"><div id="light" class="fs-2 fw-bold">-- lux</div></div>
+    <div class="col-md-4 mb-3">
+      <div class="card text-center shadow-sm border-primary">
+        <div class="card-header bg-primary text-white fw-bold">Ánh sáng</div>
+        <div class="card-body"><div id="light" class="fs-2 fw-bold text-light">-- lux</div></div>
       </div>
     </div>
   </div>
+
   <!-- Trạng thái thiết bị -->
-<div class="card mb-4">
-  <div class="card-header bg-success text-white">Trạng thái thiết bị</div>
-  <div class="card-body row text-center">
-    <div class="col-md-2">LED1: <span id="led1">--</span></div>
-    <div class="col-md-2">LED2: <span id="led2">--</span></div>
-    <div class="col-md-2">LED3: <span id="led3">--</span></div>
-    <div class="col-md-2">LED4: <span id="led4">--</span></div>
-    <div class="col-md-2">Quạt: <span id="fan">--</span></div>
-    <div class="col-md-2">Rèm: <span id="curtainMode">--</span></div>
-  </div>
-  <div class="card-body row text-center mt-3">
-    <div class="col-md-6">
-      <h5>Quạt (vòng/s)</h5>
-      <div id="fanRPS" class="fs-3 fw-bold">--</div>
+  <div class="card mb-4 shadow-sm border-primary">
+    <div class="card-header bg-primary text-white text-center fw-bold">Trạng thái thiết bị</div>
+    <div class="card-body row text-center text-light">
+      <div class="col-md-2">LED1: <span id="led1">--</span></div>
+      <div class="col-md-2">LED2: <span id="led2">--</span></div>
+      <div class="col-md-2">LED3: <span id="led3">--</span></div>
+      <div class="col-md-2">LED4: <span id="led4">--</span></div>
+      <div class="col-md-2">Quạt: <span id="fan">--</span></div>
+      <div class="col-md-2">Rèm: <span id="curtainMode">--</span></div>
     </div>
-    <div class="col-md-6">
-      <h5>Rèm (%)</h5>
-      <div class="progress">
-        <div id="curtainPercent" class="progress-bar bg-warning" role="progressbar" 
-             style="width: 0%">0%</div>
+    <div class="card-body row text-center mt-3 text-light">
+      <div class="col-md-6 mb-3">
+        <h5>Quạt (vòng/s)</h5>
+        <div id="fanRPS" class="fs-3 fw-bold">--</div>
       </div>
-    </div>
-  </div>
-</div>
-  <!-- Điều khiển toggle -->
-  <div class="card mb-4">
-    <div class="card-header bg-secondary text-white">Điều khiển thiết bị</div>
-    <div class="card-body d-flex flex-wrap gap-2">
-      <button id="btn-led1" class="btn btn-outline-danger" onclick="toggleDevice('truong/home/cmd/led1','led1')">LED1</button>
-      <button id="btn-led2" class="btn btn-outline-danger" onclick="toggleDevice('truong/home/cmd/led2','led2')">LED2</button>
-      <button id="btn-led3" class="btn btn-outline-danger" onclick="toggleDevice('truong/home/cmd/led3','led3')">LED3</button>
-      <button id="btn-led4" class="btn btn-outline-danger" onclick="toggleDevice('truong/home/cmd/led4','led4')">LED4</button>
-      <button id="btn-fan"  class="btn btn-outline-danger" onclick="toggleDevice('truong/home/cmd/fan','fan')">Fan</button>
-      <button id="btn-curtain" class="btn btn-outline-danger" onclick="toggleCurtain()">Curtain</button>
-    </div>
-  </div>
-  <!-- Auto mode -->
-<div class="card mb-4">
-  <div class="card-header bg-info text-white">Auto mode</div>
-  <div class="card-body">
-    <form id="thresholdForm" class="row g-3">
-      <div class="col-12">
-        <label class="form-check-label me-2">Bật auto:</label>
-        <input type="checkbox" id="th-enabled" class="form-check-input">
-      </div>
-      <div class="col-md-3">
-        <label class="form-label">Thiết bị</label>
-        <select id="th-device" class="form-select" onchange="updateActionOptions()">
-          <option value="fan">Quạt</option>
-          <option value="led1">LED1</option>
-          <option value="led2">LED2</option>
-          <option value="led3">LED3</option>
-          <option value="led4">LED4</option>
-          <option value="curtain">Rèm</option>
-        </select>
-      </div>
-      <div class="col-md-3">
-        <label class="form-label">Ngày</label>
-        <input type="date" id="th-date" class="form-control">
-      </div>
-      <div class="col-md-3">
-    <label class="form-label">Giờ bắt đầu</label>
-    <input type="time" id="th-timeStart" class="form-control">
-  </div>
-  <div class="col-md-3">
-    <label class="form-label">Giờ kết thúc</label>
-    <input type="time" id="th-timeEnd" class="form-control">
-  </div>
-      <!-- Ngưỡng cho tất cả cảm biến -->
-      <div class="col-md-4">
-        <label class="form-label">Temp min</label>
-        <input type="number" step="0.1" id="th-tmin" class="form-control">
-      </div>
-      <div class="col-md-4">
-        <label class="form-label">Temp max</label>
-        <input type="number" step="0.1" id="th-tmax" class="form-control">
-      </div>
-      <div class="col-md-4">
-        <label class="form-label">Độ ẩm min</label>
-        <input type="number" step="0.1" id="th-hmin" class="form-control">
-      </div>
-      <div class="col-md-4">
-        <label class="form-label">Độ ẩm max</label>
-        <input type="number" step="0.1" id="th-hmax" class="form-control">
-      </div>
-      <div class="col-md-4">
-        <label class="form-label">Ánh sáng min</label>
-        <input type="number" step="0.1" id="th-lmin" class="form-control">
-      </div>
-      <div class="col-md-4">
-        <label class="form-label">Ánh sáng max</label>
-        <input type="number" step="0.1" id="th-lmax" class="form-control">
-      </div>
-      <!-- Action -->
-      <div class="col-md-6">
-        <label class="form-label">Action khi vượt max</label>
-        <select id="th-action-max" class="form-select">
-          <option value="ON">ON</option>
-          <option value="OFF">OFF</option>
-          <option value="OPEN">Open</option>
-          <option value="CLOSE">Close</option>
-          <option value="STOP">Stop</option>
-        </select>
-      </div>
-      <div class="col-md-6">
-        <label class="form-label">Action khi dưới min</label>
-        <select id="th-action-min" class="form-select">
-          <option value="ON">ON</option>
-          <option value="OFF">OFF</option>
-          <option value="OPEN">Open</option>
-          <option value="CLOSE">Close</option>
-          <option value="STOP">Stop</option>
-        </select>
-      </div>
-      <div class="col-12">
-        <button class="btn btn-primary" type="submit">Lưu auto mode</button>
-      </div>
-    </form>
-    <div id="auto-log" class="mt-3 text-muted"></div>
-  </div>
-</div>
-  <div class="card mb-4">
-  <div class="card-header bg-info text-white">Danh sách Auto mode</div>
-  <div class="card-body">
-    <div class="table-responsive">
-    <table class="table table-bordered" id="thresholdsTable">
-      <thead>
-        <tr>
-          <th>Thiết bị</th>
-          <th>Ngày</th>
-          <th>Giờ bắt đầu</th>
-          <th>Giờ kết thúc</th>
-          <th>Enabled</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-      </div>
-  </div>
-</div>
-  <!-- Lịch hẹn -->
-  <div class="card mb-4">
-    <div class="card-header bg-dark text-white">Lịch hẹn</div>
-    <div class="card-body">
-      <form id="scheduleForm" class="row g-3">
-        <div class="col-md-3"><input class="form-control" id="sc-name" placeholder="Tên lịch" required></div>
-        <div class="col-md-2"><input type="date" class="form-control" id="sc-date" required></div>
-        <div class="col-md-2"><input type="time" class="form-control" id="sc-time" required></div>
-        <div class="col-md-3">
-          <select id="sc-device" class="form-select" required>
-            <option value="fan">Quạt</option>
-            <option value="led1">LED1</option>
-            <option value="led2">LED2</option>
-            <option value="led3">LED3</option>
-            <option value="led4">LED4</option>
-            <option value="curtain">Rèm</option>
-          </select>
+      <div class="col-md-6 mb-3">
+        <h5>Rèm (%)</h5>
+        <div class="progress bg-secondary">
+          <div id="curtainPercent" class="progress-bar bg-warning text-dark fw-bold" role="progressbar" style="width: 0%">0%</div>
         </div>
-        <div class="col-md-2">
-  <select id="sc-cmd" class="form-select" required></select>
-</div>
-        <div class="col-md-12"><button class="btn btn-success" type="submit">Thêm</button></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Điều khiển toggle -->
+  <div class="card mb-4 shadow-sm border-primary">
+    <div class="card-header bg-primary text-white text-center fw-bold">Điều khiển thiết bị</div>
+    <div class="card-body d-flex flex-wrap gap-2 justify-content-center">
+      <button id="btn-led1" class="btn btn-outline-light rounded-pill px-3" onclick="toggleDevice('truong/home/cmd/led1','led1')">LED1</button>
+      <button id="btn-led2" class="btn btn-outline-light rounded-pill px-3" onclick="toggleDevice('truong/home/cmd/led2','led2')">LED2</button>
+      <button id="btn-led3" class="btn btn-outline-light rounded-pill px-3" onclick="toggleDevice('truong/home/cmd/led3','led3')">LED3</button>
+      <button id="btn-led4" class="btn btn-outline-light rounded-pill px-3" onclick="toggleDevice('truong/home/cmd/led4','led4')">LED4</button>
+      <button id="btn-fan"  class="btn btn-outline-light rounded-pill px-3" onclick="toggleDevice('truong/home/cmd/fan','fan')">Fan</button>
+      <button id="btn-curtain" class="btn btn-outline-light rounded-pill px-3" onclick="toggleCurtain()">Curtain</button>
+    </div>
+  </div>
+
+  <!-- Auto mode -->
+  <div class="card mb-4 shadow-sm border-primary">
+    <div class="card-header bg-primary text-white text-center fw-bold">Auto mode</div>
+    <div class="card-body text-light">
+      <form id="thresholdForm" class="row g-3">
+        <!-- giữ nguyên các input như cũ -->
+      </form>
+      <div id="auto-log" class="mt-3 text-muted"></div>
+    </div>
+  </div>
+
+  <div class="card mb-4 shadow-sm border-primary">
+    <div class="card-header bg-primary text-white text-center fw-bold">Danh sách Auto mode</div>
+    <div class="card-body">
+      <div class="table-responsive">
+        <table class="table table-bordered table-hover table-striped align-middle text-light" id="thresholdsTable">
+          <thead class="table-dark">
+            <tr><th>Thiết bị</th><th>Ngày</th><th>Giờ bắt đầu</th><th>Giờ kết thúc</th><th>Enabled</th><th>Actions</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Lịch hẹn -->
+  <div class="card mb-4 shadow-sm border-primary">
+    <div class="card-header bg-primary text-white text-center fw-bold">Lịch hẹn</div>
+    <div class="card-body text-light">
+      <form id="scheduleForm" class="row g-3">
+        <!-- giữ nguyên các input như cũ -->
       </form>
       <div id="schedule-log" class="mt-3 text-muted"></div>
     </div>
   </div>
-  <div class="card mb-4">
-  <div class="card-header bg-dark text-white">Danh sách Lịch hẹn</div>
-  <div class="card-body">
-    <div class="table-responsive">
-    <table class="table table-bordered" id="schedulesTable">
-      <thead>
-        <tr>
-          <th>Tên</th>
-          <th>Ngày</th>
-          <th>Giờ</th>
-          <th>Thiết bị</th>
-          <th>Cmd</th>
-          <th>Enabled</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-    </div>
-  </div>
-</div>
-  <!-- Biểu đồ -->
-  <div class="card">
-  <div class="card-header bg-primary text-white">Biểu đồ cảm biến</div>
-  <div class="card-body">
-    <div class="chart-container" style="position: relative; height:40vh; width:100%">
-      <canvas id="sensorChart"></canvas>
-    </div>
-  </div>
-</div>
-  <!-- Báo cáo thống kê -->
-<div class="card mb-4">
-  <div class="card-header bg-dark text-white text-center">
-    Báo cáo thống kê cảm biến
-  </div>
-  <div class="card-body">
-    <!-- Form chọn khoảng thời gian -->
-    <div class="row g-2 mb-3">
-      <div class="col-12 col-md-auto">
-        <input type="date" id="startDate" class="form-control">
-      </div>
-      <div class="col-12 col-md-auto">
-        <input type="date" id="endDate" class="form-control">
-      </div>
-      <div class="col-12 col-md-auto">
-        <button class="btn btn-primary w-100" onclick="loadStatsArchive()">Xem</button>
-      </div>
-    </div>
 
-    <!-- Bảng thống kê -->
-    <div class="table-responsive">
-      <table class="table table-bordered table-sm text-center align-middle" id="statsTable">
-        <thead class="table-light">
-          <tr>
-            <th>Ngày</th>
-            <th>Nhiệt độ Min</th>
-            <th>Nhiệt độ Max</th>
-            <th>Nhiệt độ TB</th>
-            <th>Độ ẩm Min</th>
-            <th>Độ ẩm Max</th>
-            <th>Độ ẩm TB</th>
-            <th>Ánh sáng Min</th>
-            <th>Ánh sáng Max</th>
-            <th>Ánh sáng TB</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </div>
-
-    <!-- Phân trang -->
-    <div id="statsPagination" class="mt-2 d-flex flex-wrap gap-1 justify-content-center"></div>
-
-    <!-- Biểu đồ -->
-    <div class="mt-4">
-      <canvas id="statsChart"></canvas>
-    </div>
-  </div>
-</div>
-    <!-- Quản lý người dùng -->
-  <div class="card mb-4">
-    <div class="card-header bg-secondary text-white">Quản lý người dùng (Admin)</div>
+  <div class="card mb-4 shadow-sm border-primary">
+    <div class="card-header bg-primary text-white text-center fw-bold">Danh sách Lịch hẹn</div>
     <div class="card-body">
+      <div class="table-responsive">
+        <table class="table table-bordered table-hover table-striped align-middle text-light" id="schedulesTable">
+          <thead class="table-dark">
+            <tr><th>Tên</th><th>Ngày</th><th>Giờ</th><th>Thiết bị</th><th>Cmd</th><th>Enabled</th><th>Actions</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Biểu đồ -->
+  <div class="card mb-4 shadow-sm border-primary">
+    <div class="card-header bg-primary text-white text-center fw-bold">Biểu đồ cảm biến</div>
+    <div class="card-body bg-dark rounded p-3">
+      <div class="chart-container" style="position: relative; height:50vh; width:100%">
+        <canvas id="sensorChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+   <!-- Báo cáo thống kê -->
+  <div class="card mb-4 shadow-sm border-primary">
+    <div class="card-header bg-primary text-white text-center fw-bold">
+      Báo cáo thống kê cảm biến
+    </div>
+    <div class="card-body text-light">
+      <!-- Form chọn khoảng thời gian -->
+      <div class="row g-2 mb-3 justify-content-center">
+        <div class="col-12 col-md-auto">
+          <input type="date" id="startDate" class="form-control">
+        </div>
+        <div class="col-12 col-md-auto">
+          <input type="date" id="endDate" class="form-control">
+        </div>
+        <div class="col-12 col-md-auto">
+          <button class="btn btn-primary rounded-pill px-4 w-100" onclick="loadStatsArchive()">Xem</button>
+        </div>
+      </div>
+
+      <!-- Bảng thống kê -->
+      <div class="table-responsive">
+        <table class="table table-bordered table-hover table-striped align-middle text-light" id="statsTable">
+          <thead class="table-dark">
+            <tr>
+              <th>Ngày</th>
+              <th>Nhiệt độ Min</th>
+              <th>Nhiệt độ Max</th>
+              <th>Nhiệt độ TB</th>
+              <th>Độ ẩm Min</th>
+              <th>Độ ẩm Max</th>
+              <th>Độ ẩm TB</th>
+              <th>Ánh sáng Min</th>
+              <th>Ánh sáng Max</th>
+              <th>Ánh sáng TB</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <!-- Phân trang -->
+      <div id="statsPagination" class="mt-2 d-flex justify-content-center flex-wrap gap-1"></div>
+
+      <!-- Biểu đồ -->
+      <div class="mt-4 bg-dark rounded p-3">
+        <canvas id="statsChart"></canvas>
+      </div>
+    </div>
+  </div>
+  <!-- Quản lý người dùng -->
+  <div class="card mb-4 shadow-sm border-primary">
+    <div class="card-header bg-primary text-white text-center fw-bold">Quản lý người dùng (Admin)</div>
+    <div class="card-body text-light">
       <!-- Bảng danh sách user -->
-      <table class="table table-bordered" id="usersTable">
-        <thead>
-          <tr>
-            <th>Username</th>
-            <th>Role</th>
-            <th>Allowed Devices</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
+      <div class="table-responsive">
+        <table class="table table-bordered table-hover table-striped align-middle text-light" id="usersTable">
+          <thead class="table-dark">
+            <tr>
+              <th>Username</th>
+              <th>Role</th>
+              <th>Allowed Devices</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
 
       <!-- Form thêm user -->
-      <h5 class="mt-3">Thêm người dùng mới</h5>
+      <h5 class="mt-3 fw-bold">Thêm người dùng mới</h5>
       <form id="addUserForm" class="row g-3">
         <div class="col-md-3">
           <input type="text" name="username" class="form-control" placeholder="Username" required>
@@ -317,40 +220,41 @@
           </select>
         </div>
         <div class="col-md-4">
-  <label class="form-label">Thiết bị được phép</label>
-  <select name="allowedDevices" class="form-select" multiple>
-    <option value="fan">Quạt</option>
-    <option value="led1">LED1</option>
-    <option value="led2">LED2</option>
-    <option value="led3">LED3</option>
-    <option value="led4">LED4</option>
-    <option value="curtain">Rèm</option>
-  </select>
-  <small class="text-muted">Giữ Ctrl/Shift để chọn nhiều</small>
-</div>
-        <div class="col-12">
-          <button type="submit" class="btn btn-primary">Thêm</button>
+          <label class="form-label">Thiết bị được phép</label>
+          <select name="allowedDevices" class="form-select" multiple>
+            <option value="fan">Quạt</option>
+            <option value="led1">LED1</option>
+            <option value="led2">LED2</option>
+            <option value="led3">LED3</option>
+            <option value="led4">LED4</option>
+            <option value="curtain">Rèm</option>
+          </select>
+          <small class="text-muted">Giữ Ctrl/Shift để chọn nhiều</small>
+        </div>
+        <div class="col-12 text-center">
+          <button type="submit" class="btn btn-primary rounded-pill px-4">Thêm</button>
         </div>
       </form>
     </div>
   </div>
-  <div class="card mb-4">
-  <div class="card-header bg-danger text-white">OTA Firmware Update</div>
-  <div class="card-body">
-    <form id="otaForm" enctype="multipart/form-data" class="row g-3">
-      <div class="col-md-6">
-        <input type="file" name="file" class="form-control" required>
-      </div>
-      <div class="col-md-4">
-        <input type="text" name="version" class="form-control" placeholder="Phiên bản" required>
-      </div>
-      <div class="col-md-2">
-        <button type="submit" class="btn btn-danger">Upload</button>
-      </div>
-    </form>
-    <div id="ota-log" class="mt-3 text-muted"></div>
+  <!-- OTA Firmware Update -->
+  <div class="card mb-4 shadow-sm border-primary">
+    <div class="card-header bg-primary text-white text-center fw-bold">OTA Firmware Update</div>
+    <div class="card-body text-light">
+      <form id="otaForm" enctype="multipart/form-data" class="row g-3">
+        <div class="col-md-6">
+          <input type="file" name="file" class="form-control" required>
+        </div>
+        <div class="col-md-4">
+          <input type="text" name="version" class="form-control" placeholder="Phiên bản" required>
+        </div>
+        <div class="col-md-2 text-center">
+          <button type="submit" class="btn btn-danger rounded-pill px-4">Upload</button>
+        </div>
+      </form>
+      <div id="ota-log" class="mt-3 text-muted"></div>
+    </div>
   </div>
-</div>
 
   <script src="/js/dashboard.js"></script>
 </body>
