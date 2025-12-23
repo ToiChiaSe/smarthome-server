@@ -169,7 +169,6 @@ document.getElementById("thresholdForm").addEventListener("submit", async (e) =>
     actionMax: document.getElementById("th-action-max").value,
     actionMin: document.getElementById("th-action-min").value
   };
-
   const res = await fetch("/api/thresholds", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -284,8 +283,6 @@ function updateScheduleCmdOptions() {
     cmdSelect.appendChild(o);
   });
 }
-// ====== Quản lý người dùng ======
-
 // Nhận danh sách user từ server
 socket.on("users", (users) => {
   const tbody = document.querySelector("#usersTable tbody");
@@ -304,20 +301,17 @@ socket.on("users", (users) => {
     tbody.appendChild(tr);
   });
 });
-
 // Thêm user mới
 document.getElementById("addUserForm").addEventListener("submit", async (e) => {
   e.preventDefault();
   const form = e.target;
   const devices = Array.from(form.allowedDevices.selectedOptions).map(opt => opt.value);
-
   const payload = {
     username: form.username.value,
     password: form.password.value,
     role: form.role.value,
     allowedDevices: devices
   };
-
   await fetch("/api/users", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -325,12 +319,10 @@ document.getElementById("addUserForm").addEventListener("submit", async (e) => {
   });
   form.reset();
 });
-
 // Xóa user
 async function deleteUser(id) {
   await fetch(`/api/users/${id}`, { method: "DELETE" });
 }
-
 // Sửa user
 async function editUser(id, role, allowedDevices) {
   const newRole = prompt("Nhập role mới (admin/user):", role);
@@ -367,7 +359,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 document.getElementById("otaForm").addEventListener("submit", async (e) => {
   e.preventDefault();
   const formData = new FormData(e.target);
-
   try {
     const res = await fetch("/api/firmware", {
       method: "POST",
@@ -386,7 +377,6 @@ document.getElementById("otaForm").addEventListener("submit", async (e) => {
 });
 // ====== Báo cáo thống kê từ SensorStats (archive) ======
 let statsChart;
-
 async function loadStatsArchive(page = 1, limit = 20) {
   const start = document.getElementById("startDate").value;
   const end = document.getElementById("endDate").value;
@@ -394,15 +384,12 @@ async function loadStatsArchive(page = 1, limit = 20) {
     alert("Vui lòng chọn ngày bắt đầu và ngày kết thúc");
     return;
   }
-
   try {
     const res = await fetch(`/api/stats/archive?start=${start}&end=${end}`);
     const data = await res.json();
-
     // ===== Pagination =====
     const totalPages = Math.ceil(data.length / limit);
     const slice = data.slice((page - 1) * limit, page * limit);
-
     // Render bảng
     const tbody = document.querySelector("#statsTable tbody");
     tbody.innerHTML = "";
@@ -421,20 +408,17 @@ async function loadStatsArchive(page = 1, limit = 20) {
           <td>${row.lightAvg?.toFixed(1) ?? "--"}</td>
         </tr>`;
     });
-
     // Render pagination buttons
     const paginationDiv = document.getElementById("statsPagination");
     paginationDiv.innerHTML = "";
     for (let i = 1; i <= totalPages; i++) {
       paginationDiv.innerHTML += `<button class="btn btn-sm ${i===page?"btn-primary":"btn-outline-primary"}" onclick="loadStatsArchive(${i},${limit})">${i}</button> `;
     }
-
     // ===== Chart.js =====
     const labels = data.map(r => r.date);
     const temps = data.map(r => r.tempAvg);
     const hums = data.map(r => r.humAvg);
     const lights = data.map(r => r.lightAvg);
-
     if (statsChart) statsChart.destroy();
     const ctx = document.getElementById("statsChart").getContext("2d");
     statsChart = new Chart(ctx, {
@@ -459,7 +443,7 @@ async function loadStatsArchive(page = 1, limit = 20) {
   }
 }
 // Gọi khi load trang
-document.addEventListener("DOMContentLoaded", loadStats);
+document.addEventListener("DOMContentLoaded", () => loadStatsArchive());
 // Nếu muốn hiển thị tiến độ OTA từ ESP32
 socket.on("otaStatus", (msg) => {
   const div = document.getElementById("ota-log");
